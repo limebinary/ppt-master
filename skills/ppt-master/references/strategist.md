@@ -114,16 +114,16 @@ Built-in library contains 6700+ icons across three libraries:
 
 | Library | Style | Count | Prefix | When to use |
 |---------|-------|-------|--------|-------------|
-| `chunk` | fill · straight-line geometry (sharp corners, rectilinear) | 640 | `chunk/` | ✅ **Default** — most scenarios |
-| `tabler-filled` | fill · bezier-curve forms (smooth, rounded contours) | 1000+ | `tabler-filled/` | When design calls for smooth, rounded, organic icon forms |
-| `tabler-outline` | stroke/line | 5000+ | `tabler-outline/` | Screen-only decks needing a light, elegant aesthetic |
+| `chunk` | fill · straight-line geometry (sharp corners, rectilinear) | 640 | `chunk/` | Sharp, structured, engineered feel |
+| `tabler-filled` | fill · bezier-curve forms (smooth, rounded contours) | 1000+ | `tabler-filled/` | Warm, rounded, organic feel |
+| `tabler-outline` | stroke/line | 5000+ | `tabler-outline/` | Light, elegant, screen-only aesthetic |
 
 > **Mandatory rules when choosing C**:
-> 1. **Lock icon library first** — default to `chunk`; switch to `tabler-filled` only when the design calls for smooth, rounded, organic icon forms; use `tabler-outline` only for screen-only light aesthetic decks:
->    - **Sharp, rectilinear geometry** (default): use `chunk` — all paths use straight-line commands only (M/L/H/V/Z)
->    - **Smooth, rounded forms**: use `tabler-filled` — all contours built with bezier curves and arcs (C/A)
->    - **Outline/Stroke style** (screen-only, light aesthetic): use `tabler-outline`
->    - **Outline/Stroke style** (screen-only, light aesthetic): use `tabler-outline`
+> 1. **No default library — actively choose based on content tone.** Read the source material and judge its character before locking a library. Common mappings (reference, not rules):
+>    - **Tech / engineering / enterprise / data** → `chunk` — sharp, rectilinear geometry (M/L/H/V/Z only) matches the precise, structured tone
+>    - **Lifestyle / health / home / wellness** → `tabler-filled` — smooth bezier curves and arcs (C/A) match the warm, organic tone
+>    - **Light, refined, minimal showcases** (screen-only) → `tabler-outline` — stroke-only forms match the airy, elegant tone
+>    - When content tone doesn't cleanly match any row above, pick the library whose visual character best serves the deck — explain the choice in the Design Spec.
 >    - ⚠️ **One presentation = one library.** Mixing icons from different libraries is FORBIDDEN. If a chosen library lacks an exact icon, find the closest alternative **within that same library**.
 > 2. Search for icon availability: `ls skills/ppt-master/templates/icons/<chosen-library>/ | grep <keyword>`
 > 3. Use the verified filename (without `.svg`) as the icon name
@@ -134,31 +134,75 @@ Built-in library contains 6700+ icons across three libraries:
 
 ### g. Typography Plan Confirmation (Font + Size)
 
-#### Font Presets
+#### Font Combinations
 
-| Scenario | Preset | Title | Body | Emphasis |
-|----------|--------|-------|------|----------|
-| Modern business, tech | P1 | Microsoft YaHei / Arial | Microsoft YaHei / Calibri | SimHei |
-| Government documents, reports | P2 | SimHei | SimSun / Times | SimSun |
-| Culture, arts, humanities | P3 | KaiTi / Georgia | Microsoft YaHei | SimHei |
-| Traditional, conservative | P4 | SimSun | Microsoft YaHei / Arial | SimSun |
-| English-primary | P5 | Arial / Impact | Calibri / Georgia | Arial Black |
+> **Starting points, not a menu.** Each row below is one common direction — pick the closest match and adapt, or propose a new combination when the content tone calls for it. Per-role assignment is expected: `title` / `body` / `emphasis` / `code` may each use a different family. A deck is not required to stick to one family throughout.
+>
+> **⚠️ PPT-safe font discipline (HARD rule).** PPTX stores a single `typeface` per text run — there is no runtime fallback stack. On a machine that lacks the declared font, PowerPoint substitutes with its own default (typically Calibri), breaking the design. Therefore every CSS `font-family` stack declared in the spec MUST end with a cross-platform pre-installed font:
+> - CJK-capable stacks → end with `"Microsoft YaHei", sans-serif` (sans) or `SimSun, serif` (serif)
+> - Latin-only stacks → end with `Arial, sans-serif` or `"Times New Roman", serif`
+> - Monospace stacks → end with `Consolas, "Courier New", monospace`
+>
+> Any stack that *leads* with a non-pre-installed font (Inter / HarmonyOS Sans / any Google Fonts family / any brand-specific typeface like McKinsey Bower) is only acceptable when the Design Spec explicitly notes "requires the target machine to have this font installed, or the PPTX to embed it." Never leave a non-safe font as the final fallback.
 
-#### Font Size Baseline (all sizes in px)
+**Cross-platform pre-installed reference** (Windows + Mac out of the box):
 
-Selection principle: Font size is based on **content density**, not design style.
+| Category | Safe families |
+|----------|--------------|
+| CJK sans | Microsoft YaHei, SimHei, PingFang SC, Heiti SC |
+| CJK serif | SimSun, FangSong, KaiTi, Songti SC, STSong |
+| Latin sans | Arial, Calibri, Segoe UI, Verdana, Helvetica, Helvetica Neue |
+| Latin serif | Times New Roman, Georgia, Cambria, Times, Palatino |
+| Monospace | Consolas, Courier New, Menlo, Monaco |
+| Display | Impact, Arial Black |
+
+**Seed combinations** (all stacks are PPT-safe — end on pre-installed fonts):
+
+| Direction | Typical scenarios | Title stack | Body stack | Code stack |
+|-----------|-------------------|-------------|------------|------------|
+| **Modern CJK sans** (default) | Tech launches, enterprise reports, most contemporary decks | `"Microsoft YaHei", "PingFang SC", sans-serif` | same as Title | — |
+| **Government / 政务** | Government reports, party-building, formal briefings | `SimHei, "Microsoft YaHei", sans-serif` | `SimSun, serif` | — |
+| **Academic serif** | Research, legal, theses, serious analysis | `Georgia, "Times New Roman", serif` | `"Times New Roman", SimSun, serif` | — |
+| **Editorial display** | Magazine covers, luxury, finance, brand storytelling | `Georgia, SimSun, serif` (Bold/Heavy) | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
+| **Tech / developer** | Code-focused tech talks, developer docs, API / CLI explainers | `Arial, sans-serif` | same as Title | `Consolas, "Courier New", monospace` |
+| **International English** | English-primary decks, international audiences | `"Helvetica Neue", Arial, sans-serif` | same as Title | — |
+| **Impact / 海报** | Cover headlines, call-to-action, poster-style slides | `Impact, "Arial Black", "Microsoft YaHei", sans-serif` | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
+
+> **Stack length discipline (soft rule).** 3-4 fonts per stack is enough — more is waste. Converter behavior (see [`drawingml_utils.py parse_font_family`](../scripts/svg_to_pptx/drawingml_utils.py)) only picks the **first** Latin font and the **first** CJK font; everything after is silently dropped in PPTX. macOS-only families (`Songti SC` → SimSun; `Menlo` / `Monaco` → Consolas; `Helvetica` → Arial) are mapped via `FONT_FALLBACK_WIN`, so stacking both the macOS family and its Windows equivalent is redundant. Convention: lead with Windows-preinstalled fonts (Microsoft YaHei / SimSun / Arial / Georgia / Consolas) so PPT viewers see the intended typeface immediately; keep at most **one** macOS-exclusive family (typically `"PingFang SC"`) as a browser-preview nicety.
+
+> **Directions that require font installation or embedding** (NOT in the safe seed table above):
+> - **Retro / pixel** — Press Start 2P / VT323 / Silkscreen (not pre-installed on any OS; degrades to a wildly different font without install)
+> - **Rounded friendly** — Nunito / Quicksand / M PLUS Rounded / OPPO Sans (no true cross-platform rounded pre-installed; closest safe substitutes are `Trebuchet MS` / `Verdana` but they are not truly rounded)
+> - **Modern web sans** — Inter / HarmonyOS Sans / Source Han Sans / Noto Sans (not pre-installed; viewers without the font see Calibri)
+> - **Brand-specific typography** — McKinsey Bower, Anthropic house fonts, corporate VI typefaces
+>
+> Only declare these when the deck runs on controlled machines (all viewers install the font first) or when the PPTX embeds the font. Always note the constraint in the Design Spec.
+>
+> **Guidance for the Strategist**: state the intended direction in one phrase (e.g., "modern CJK sans"), then list the actual families per role in the design spec. The spec is the source of truth; the table above is only a quick pick.
+
+#### Font Size Ramp (all sizes in px)
+
+> **Ramp discipline, not a fixed menu.** Every size in the deck is derived from the `body` baseline as a ratio. The `spec_lock.md typography` block declares `body` as the anchor plus whichever common slots this deck actually uses (`title` / `subtitle` / `annotation` by default; add `cover_title` / `hero_number` / `chart_annotation` etc. when the content calls for them). Executor may use intermediate sizes during generation as long as the size's ratio to `body` lands within the corresponding role's band below — the list is a ramp, not an allowed-values enumeration.
+
+Selection principle: Baseline choice is driven by **content density**, not design style.
 
 | Content Density | Points per Page | Body Baseline | Suitable Scenarios |
 |----------------|----------------|---------------|-------------------|
 | Relaxed | 3-5 items | 24px | Keynote-style, training materials |
 | Dense | 6+ items | 18px | Data reports, consulting analysis |
 
-| Level | Ratio | 24px Baseline | 18px Baseline |
-|-------|-------|---------------|---------------|
-| Cover title | 2.5-3x | 60-72px | 45-54px |
+| Level | Ratio to body | 24px baseline | 18px baseline |
+|-------|---------------|---------------|---------------|
+| Cover title (hero headline) | 2.5-5x | 60-120px | 45-90px |
+| Chapter / section opener | 2-2.5x | 48-60px | 36-45px |
 | Page title | 1.5-2x | 36-48px | 27-36px |
+| Hero number (consulting KPIs) | 1.5-2x | 36-48px | 27-36px |
+| Subtitle | 1.2-1.5x | 29-36px | 22-27px |
 | **Body** | **1x** | **24px** | **18px** |
-| Annotation | 0.75x | 18px | 14px |
+| Annotation / caption | 0.7-0.85x | 17-20px | 13-15px |
+| Page number / footnote | 0.5-0.65x | 12-16px | 9-12px |
+
+> Executor may pick any px value within a role's band (e.g., 40px hero number, 13px chart annotation, 72px cover headline) without having to pre-declare every intermediate value in `spec_lock.md`. Values outside **every** band remain forbidden — those need the lock extended first.
 
 ### h. Image Usage Confirmation
 
@@ -205,17 +249,28 @@ Selection principle: Font size is based on **content density**, not design style
 | Diagram | Flowcharts, architecture diagrams, concept relationship maps |
 | Decorative pattern | Partial decoration, textures, borders, divider elements |
 
-**Image-layout alignment principles** (detailed calculation rules in `references/image-layout-spec.md`):
+**Image narrative intent** (decide this *before* consulting the ratio table — it determines whether the image even lives in a container):
 
-| Image Ratio | Recommended Layout |
-|-------------|-------------------|
+| Intent | Form | When to use |
+|--------|------|-------------|
+| **Hero / full-bleed** | Image fills the canvas (or a dominant zone); title / caption floats over with a gradient or opacity overlay for legibility | Covers, chapter dividers, `breathing` impact pages — when the image *is* the message, not a companion to body copy |
+| **Atmosphere / background layer** | Image sits behind content as a low-contrast backdrop (reduced opacity or dark overlay); content reads against the treated layer | Section backgrounds, mood-setting pages — when the image sets tone but text carries the information |
+| **Side-by-side** | Image and text occupy adjacent blocks as coequal units — the ratio table below governs container sizing in this case | Most content pages — when image and explanation need to be read together |
+| **Accent / inline** | Small image tucked next to related text as an illustrative element, not a container; no forced ratio matching | Supporting visuals, spot illustrations, small diagrams explaining a term |
+
+> Intent is driven by **what the image is doing narratively**, not by image ratio. The same 16:9 photo can be a hero on one page and a side-by-side block on the next depending on the page's purpose. Do not default every image-bearing page to side-by-side.
+
+**Side-by-side ratio alignment** (consult only when the chosen intent is *side-by-side*; detailed calculation rules in `references/image-layout-spec.md`):
+
+| Image Ratio | Recommended Container Layout |
+|-------------|-----------------------------|
 | > 2.0 (ultra-wide) | Top-bottom split, top full-width |
 | 1.5-2.0 (wide) | Top-bottom split |
 | 1.2-1.5 (standard landscape) | Left-right split |
 | 0.8-1.2 (square) | Left-right split |
 | < 0.8 (portrait) | Left-right split, image on left |
 
-Core logic: The layout container's aspect ratio must closely match the image's original ratio. Never force a wide image into a square container or a portrait image into a narrow horizontal strip.
+Core logic (side-by-side only): the container's aspect ratio must closely match the image's original ratio. Never force a wide image into a square container or a portrait image into a narrow horizontal strip. For hero / atmosphere / accent intents, ratio alignment is not a constraint — composition is governed by the page's narrative, not the image's numeric ratio.
 
 > **Portrait canvases** (Xiaohongshu, Story): Layout rules differ — top-bottom is preferred for most ratios since left-right columns become too narrow. See "Portrait Canvas Override" in `references/image-layout-spec.md`.
 
@@ -324,16 +379,23 @@ When content outline pages involve **data visualization or infographic-style str
 
 ---
 
-## 4. Layout Pattern Quick Reference
+## 4. Layout Pattern Library
 
-| Layout | Suitable Scenarios | PPT 16:9 Reference Dimensions |
+> **Principle — proportion follows information weight, not preset ratios.** This is a pattern library, not a menu. Combine patterns on one page, break the grid for `breathing` pages, or propose a pattern not listed when the content calls for it. Defaulting every page to a symmetric grid is what produces the "AI-generated" look.
+
+| Pattern | Suitable Scenarios | PPT 16:9 Reference Dimensions |
 |--------|-------------------|-------------------------------|
 | Single column centered | Covers, conclusions, key points | Content width 800-1000px, horizontally centered |
-| Two-column | Comparative analysis, left-image right-text | Column ratio 1:1 or 3:2, gap 40-60px |
+| Symmetric split (5:5) | Comparisons where two sides carry equal weight | Column ratio 1:1, gap 40-60px |
+| Asymmetric split (3:7 / 2:8) | One side dominates — chart vs. takeaway, image vs. caption | Heavier side 840-1024px, lighter side 256-440px |
 | Three-column | Parallel points, process steps | Column ratio 1:1:1, gap 30-40px |
-| Four-quadrant | Matrix analysis, classification | Quadrant 560x250px, gap 20-30px |
-| Top-bottom split | Ultra-wide images + text | Image full-width, text area >= 150px height |
-| Left-right split | Standard/portrait images + text | Image on side, text area >= 280px width |
+| Four-quadrant / matrix | Two-axis classification, strategic quadrants | Quadrant 560x250px, gap 20-30px |
+| Top-bottom split | Ultra-wide images + text, processes, timelines | Image full-width, text area >= 150px height |
+| Z-pattern / waterfall | Storytelling, case studies — blocks alternate left/right | Guide eye in Z; 3-5 alternating blocks |
+| Center-radiating | Core concept + surrounding nodes | Center element 200-300px, 4-6 satellite nodes |
+| Full-bleed + floating text | `breathing` / feature pages | Image fills 1280x720, text floats over opacity overlay |
+| Figure-text overlap | Hero moments — headline over/against image edge | Text partially overlaps image, not beside it |
+| Negative-space-driven | Single element in 40-60% whitespace | One idea, weight through emptiness |
 
 **PPT 16:9 (1280x720) key dimensions**: Safe area 1200x640 (40px margins); Title area 1200x100; Content area 1200x500; Footer area 1200x40.
 
@@ -341,15 +403,15 @@ When content outline pages involve **data visualization or infographic-style str
 
 ## 5. Template Flexibility Principle
 
-> Templates are starting points, not endpoints.
+> Templates are starting points, not endpoints. **The layout list is a pattern library, not a menu** — combine patterns on one page, or propose a pattern outside the list when the content demands it.
 
 The Strategist should make professional judgments on the template basis generated by `scripts/project_manager.py`, considering user needs, content characteristics, and audience:
 
 1. Ratio systems are adjustable (font size ratios are reference values)
 2. Color schemes are customizable (based on brand and content)
-3. Layout modes can be combined (6 base layouts with free variation)
+3. Layout patterns can be combined, nested, or broken (see §4 Layout Pattern Library — 11 patterns as reference, not an exhaustive list)
 4. Content structure is extensible (12-chapter framework can be expanded or reduced)
-5. Spacing / border radius details adjusted by Executor based on content density
+5. Spacing / border radius details adjusted by Executor based on content density and `page_rhythm` tag
 
 ---
 
@@ -370,8 +432,8 @@ The Strategist should make professional judgments on the template basis generate
 | I. Project Information | Project name, canvas format, page count, style, audience, scenario, date |
 | II. Canvas Specification | Format, dimensions, viewBox, margins, content area |
 | III. Visual Theme | Style description, light/dark theme, tone, color scheme (with HEX table), gradient scheme |
-| IV. Typography System | Font plan (P1-P5), font size hierarchy (H1-Code, 7 levels) |
-| V. Layout Principles | Page structure (header/content/footer zones), 6 layout modes, spacing spec |
+| IV. Typography System | Font plan (per-role families — title / body / emphasis / code), font size hierarchy |
+| V. Layout Principles | Page structure (header/content/footer zones), layout pattern library (combine/break as content demands), spacing spec |
 | VI. Icon Usage Spec | Source description, placeholder syntax, recommended icon list |
 | VII. Visualization Reference List | Visualization type, reference template path, used-in pages, purpose |
 | VIII. Image Resource List | Filename, dimensions, ratio, purpose, status, generation description |
@@ -383,7 +445,9 @@ The Strategist should make professional judgments on the template basis generate
 1. Read reference template: `templates/design_spec_reference.md`
 2. Generate complete spec from scratch based on analysis
 3. Save to: `projects/<project_name>.../design_spec.md`
-4. **Generate execution lock**: read `templates/spec_lock_reference.md` and produce `projects/<project_name>.../spec_lock.md` — a distilled, machine-readable short form of the color / typography / icon / image decisions above. This file is what the Executor re-reads before every page (see [executor-base.md](executor-base.md) §2.1). The values in `spec_lock.md` MUST exactly match the decisions recorded in `design_spec.md`; if they ever diverge, `spec_lock.md` wins and `design_spec.md` should be treated as historical narrative
+4. **Generate execution lock**: read `templates/spec_lock_reference.md` and produce `projects/<project_name>.../spec_lock.md` — a distilled, machine-readable short form of the color / typography / icon / image / **page_rhythm** decisions above. This file is what the Executor re-reads before every page (see [executor-base.md](executor-base.md) §2.1). The values in `spec_lock.md` MUST exactly match the decisions recorded in `design_spec.md`; if they ever diverge, `spec_lock.md` wins and `design_spec.md` should be treated as historical narrative.
+   - **page_rhythm is mandatory**: Based on the page list in §IX Content Outline, assign each page one of `anchor` / `dense` / `breathing` (see `spec_lock_reference.md` for the full vocabulary). This is what breaks the uniform "every page is a card grid" feel — without it the Executor defaults all pages to `dense`.
+   - **Rhythm follows narrative, not quota**: `breathing` pages should appear at natural narrative pauses — chapter transitions, a single argument worth standalone emphasis (hero quote / big number / feature image), an SCQA "Question" bridge, or a deliberate stop after a chain of dense argumentation. If the content is genuinely a high-density data briefing or rigorous consulting analysis, the deck may legitimately be nearly all `dense` — **do NOT invent filler pages** ("Thank you", "Chapter divider with no content") to pad the rhythm, because filler is itself a hallmark AI-generated pattern. Validation test: every `breathing` page must answer "what independent thing is this page saying?" — if it can't, it shouldn't exist.
 
 ---
 

@@ -50,10 +50,27 @@ Must output confirmation including: canvas dimensions, body font size, color sch
 
 - Color values (fill / stroke / stop-color) MUST come from `colors` in `spec_lock.md`
 - Icons MUST come from the `icons.inventory` list; icon library MUST equal `icons.library`
-- Font family MUST equal `typography.font_family`; font sizes MUST match one of `typography.*` values
+- Font family MUST come from the `typography` block: use the role-specific override (`title_family` / `body_family` / `emphasis_family` / `code_family`) if declared for that role, otherwise fall back to `font_family`.
+- Font sizes follow a **ramp anchored on `typography.body`**, not a closed menu. The slots listed in `spec_lock.md typography` (`title` / `subtitle` / `annotation` / any project-specific additions like `cover_title` / `hero_number`) are common anchors — use them directly when they fit. Executor MAY use an intermediate size (e.g., 40px hero number, 13px chart annotation, 72px cover headline) when the role calls for it, **provided** the size's ratio to `body` falls within the corresponding role's band in the design-spec ramp table (see `design_spec_reference.md §IV — Font Size Hierarchy`, also mirrored in `design_spec.md §IV` per project). Sizes outside every ramp band are still forbidden — surface the need and extend the lock instead of inventing one-off values.
 - Images MUST reference files listed under `images`; no invented filenames
 
 If a page genuinely needs a value not in `spec_lock.md`, stop and surface it — do not silently invent one. Either request the user to extend the lock, or revise the page to stay within it.
+
+**Per-page layout rhythm — `page_rhythm` section**:
+
+Before drawing each page, look up its entry in `page_rhythm` (key format `P<NN>` matching the page index in §IX of `design_spec.md`) and apply the corresponding layout discipline:
+
+| Tag | Layout discipline |
+|-----|-------------------|
+| `anchor` | Structural page (cover / chapter / TOC / ending). Follow the matching template verbatim. |
+| `dense` | Information-heavy. Card grids, multi-column layouts, KPI dashboards, tables, and charts are all permitted. This is the baseline behavior. |
+| `breathing` | Low-density impact page. Avoid **multi-card grid layouts** — do not organize content as multiple parallel rounded containers (3-card row, 4-card KPI grid, 2×2 matrix rendered as cards). Use naked text blocks, dividers, whitespace, or full-bleed imagery as the content structure. Single rounded visual elements (hero image corners, callouts, tags, one emphasis block) are fine — the rule is about grid structure, not about the `rx` attribute. Proportions follow information weight (not a preset ratio). Typical forms: hero quote, single large number with one-line interpretation, full-bleed image with floating caption, section transition. |
+
+**Why this matters**: Without rhythm variation, long decks default to "every page is a card grid" — the AI-generated look. The `page_rhythm` tag is the only lever that survives context compression (since Executor re-reads `spec_lock.md` per page); narrative guidance buried in `design_spec.md` does not.
+
+**Missing `page_rhythm` section** → fall back to `dense` for every page (pre-rhythm behavior). Emit the literal line `warning: spec_lock.md missing page_rhythm — defaulting all pages to dense` once, then proceed.
+
+**Tag not found for current page** → fall back to `dense` silently. Do not invent a tag.
 
 **Rationale**: Tool-result re-reads bypass model memory (which compression can corrupt). Every page gets a fresh ground truth pinned to the most recent turn in context.
 
