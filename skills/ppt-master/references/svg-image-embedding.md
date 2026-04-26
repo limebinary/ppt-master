@@ -8,23 +8,25 @@ Technical specifications and recommended workflow for adding images to SVG files
 
 ## Image Resource List Format
 
-Defined in the Design Specification & Content Outline; each image has a status annotation. If the image approach includes "B) User-provided", you must run `analyze_images.py` immediately after the Strategist completes the Eight Confirmations, and complete the list before outputting the design spec.
+Defined in the Design Specification & Content Outline; each image has a status annotation. This file is the authority for image status names and SVG image embedding behavior. If the image approach includes "B) User-provided", run `analyze_images.py` immediately after the Strategist completes the Eight Confirmations, and complete the list before outputting the design spec.
 
 ```markdown
-| Filename | Dimensions | Purpose | Status | Generation Description |
-|----------|-----------|---------|--------|----------------------|
-| cover_bg.png | 1280x720 | Cover background | Pending | Modern tech abstract background, deep blue gradient |
-| product.png | 600x400 | Page 3 | Existing | - |
-| team.png | 600x400 | Page 5 | Placeholder | Team collaboration scene (to be added later) |
+| Filename | Dimensions | Purpose | Type | Status | Generation Description |
+|----------|------------|---------|------|--------|------------------------|
+| cover_bg.png | 1280x720 | Cover background | Background | Pending | Modern tech abstract background, deep blue gradient |
+| product.png | 600x400 | Page 3 product photo | Photography | Existing | - |
+| team.png | 600x400 | Page 5 team scene | Illustration | Placeholder | Team collaboration scene to be added later |
 ```
 
-### Three Status Types
+### Image Status Enum
 
 | Status | Meaning | Executor Handling |
 |--------|---------|-------------------|
-| **Pending** | Needs AI generation, has description | Generate image first into `images/`, then reference with `<image>` |
+| **Pending** | Needs AI generation, has a generation description | Image_Generator must attempt generation before Executor; should not remain in the list after Step 5 |
+| **Generated** | AI-generated file exists at the expected path | Reference directly from `../images/` |
+| **Needs-Manual** | Generation was attempted once plus one retry and failed | Use a dashed placeholder unless the user has manually supplied the expected file |
 | **Existing** | User already has image | Place in `images/`, reference with `<image>` |
-| **Placeholder** | Not yet processed | Use dashed border placeholder; replace later |
+| **Placeholder** | Image intentionally not prepared yet | Use dashed border placeholder; replace later |
 
 ---
 
@@ -32,14 +34,12 @@ Defined in the Design Specification & Content Outline; each image has a status a
 
 ```
 1. Strategist defines image needs → Add image resource list, annotate each status
-2. Image preparation (pending/existing) → Place in project/images/
+2. Image preparation (Pending / Existing) → Place available files in project/images/
 3. Executor generates SVGs (svg_output/)
-   ├── Existing/Pending → <image href="../images/xxx.png" .../>
-   └── Placeholder → Dashed border + description text
+   ├── Existing / Generated → <image href="../images/xxx.png" .../>
+   └── Placeholder / Needs-Manual without file → Dashed border + description text
 4. Preview: python3 -m http.server -d <project_path> 8000 → /svg_output/<filename>.svg
-5. Post-processing & Export
-   ├── python3 scripts/finalize_svg.py <project_path>
-   └── python3 scripts/svg_to_pptx.py <project_path> -s final
+5. Post-processing & Export → follow shared-standards.md §5
 ```
 
 > Recommended: During generation, keep external references in `svg_output/`. Post-processing via `finalize_svg.py` auto-embeds images into `svg_final/`, then export PPTX from `svg_final/`.
@@ -114,11 +114,11 @@ python3 -m http.server -d <project_path> 8000
 
 ## Conversion Process
 
-### Recommended: Use finalize_svg.py (Unified Pipeline)
+Use the unified post-processing pipeline in [shared-standards.md §5](shared-standards.md). It runs `finalize_svg.py` before export so image references from `svg_output/` become embedded assets in `svg_final/`.
 
 ```bash
-python3 scripts/finalize_svg.py <project_path>         # Icons, images, text, rounded rects — all in one pass
-python3 scripts/svg_to_pptx.py <project_path> -s final  # Export PPTX from final version
+python3 scripts/finalize_svg.py <project_path>
+python3 scripts/svg_to_pptx.py <project_path> -s final
 ```
 
 ### Standalone: embed_images.py (Advanced Usage)
@@ -155,11 +155,11 @@ project/
 └── svg_final/         # Final version (images embedded)
 ```
 
-### Rounded Corner Handling (clipPath Forbidden)
+### Rounded Corner / Non-rectangular Image Cropping
 
-Since `clipPath` is incompatible with PPT, clipping paths for image rounded corners are FORBIDDEN. Alternatives:
-- Process rounded corners during image generation (export PNG with rounded corners)
-- Or overlay a same-size rounded rectangle over the edges (visual simulation)
+`clipPath` **on `<image>` elements** is conditionally allowed. The authoritative constraints are in [shared-standards.md §1.2](shared-standards.md); do not restate or relax them here.
+
+Alternative for the rare case where `clipPath` does not fit: bake the rounded corners into the source image (PNG with alpha) before embedding.
 
 ---
 

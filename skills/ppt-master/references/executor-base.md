@@ -85,9 +85,10 @@ Before drawing each page, look up its entry in `page_rhythm` (key format `P<NN>`
 - **Generation rhythm**: First lock the global design context, then generate pages sequentially one by one in the same continuous context; grouped page batches (for example, 5 pages at a time) are not allowed
 - **Phased batch generation** (recommended):
   1. **Visual Construction Phase**: Generate all SVG pages continuously in sequential page order, ensuring high consistency in design style and layout coordinates (Visual Consistency)
-  2. **Logic Construction Phase**: After all SVGs are finalized, batch-generate speaker notes to ensure narrative coherence (Narrative Continuity)
+  2. **Quality Check Gate** (mandatory between phases): run `python3 scripts/svg_quality_checker.py <project_path>` against `svg_output/`. Any `error` (banned SVG features, viewBox mismatch, spec_lock color / font / size drift, non-PPT-safe font stack, etc.) MUST be fixed on the offending page before entering the Logic Construction Phase — re-generate that page and re-run the check. `warning` entries should be reviewed and fixed when straightforward; otherwise acknowledge and release. Do NOT defer this check to after `finalize_svg.py` — finalize rewrites SVG and some violations get masked.
+  3. **Logic Construction Phase**: After SVGs pass the quality gate, batch-generate speaker notes to ensure narrative coherence (Narrative Continuity)
 - **Technical specifications**: See [shared-standards.md](shared-standards.md) for SVG technical constraints and PPT compatibility rules
-- **Visual depth**: Use filter shadows, glow effects, gradient fills, dashed strokes, and gradient overlays from shared-standards.md to create layered depth — flat pages without elevation or emphasis look unfinished
+- **Visual depth — through restraint, not abundance**: Layered depth comes from rhythm (flat vs lifted, dense vs spacious), not from applying shadows everywhere. Use shadow on at most 2–3 genuinely floating elements per page (cards on photos, primary CTA, overlays); keep section panels, peer-grid cards, dividers, and body-text containers flat. Reach for typography weight, spacing, accent bars, and subtle background tints **before** adding shadow. See shared-standards.md §6 for full rules including single-light-source and elevation tiers.
 
 ### SVG File Naming Convention
 
@@ -102,43 +103,49 @@ File naming format: `<number>_<page_name>.svg`
 
 ## 4. Icon Usage
 
-Four approaches: **A: Emoji** (`<text>🚀</text>`) | **B: AI-generated** (SVG basic shapes) | **C: Built-in library** (`templates/icons/` 6700+ icons, recommended) | **D: Custom** (user-specified)
+Strategist chooses the icon approach and approved inventory. Executor only implements the approved choice. Built-in library details and the one-library rule are documented in [`../templates/icons/README.md`](../templates/icons/README.md); this section defines the SVG placeholder syntax.
 
 **Built-in icons — Placeholder method (recommended)**:
 
 ```xml
-<!-- chunk (default — straight-line geometry, sharp corners, structured) -->
-<use data-icon="chunk/home" x="100" y="200" width="48" height="48" fill="#005587"/>
+<!-- chunk-filled (straight-line geometry, sharp corners, structured) -->
+<use data-icon="chunk-filled/home" x="100" y="200" width="48" height="48" fill="#005587"/>
 
 <!-- tabler-filled (bezier-curve forms, smooth & rounded contours) -->
 <use data-icon="tabler-filled/home" x="100" y="200" width="48" height="48" fill="#005587"/>
 
 <!-- tabler-outline (light, line-art style — screen-only decks) -->
 <use data-icon="tabler-outline/home" x="100" y="200" width="48" height="48" fill="#005587"/>
+
+<!-- phosphor-duotone (single color + 20% backplate — soft depth without solid weight) -->
+<use data-icon="phosphor-duotone/house" x="100" y="200" width="48" height="48" fill="#005587"/>
+
+<!-- simple-icons (brand logos — used alongside the deck's primary library, only for real company/product marks) -->
+<use data-icon="simple-icons/github" x="100" y="200" width="48" height="48" fill="#181717"/>
+
+<!-- tabler-outline with thin / bold stroke (stroke-style libraries only) -->
+<use data-icon="tabler-outline/home" x="100" y="200" width="48" height="48" fill="#005587" stroke-width="1.5"/>
+<use data-icon="tabler-outline/home" x="100" y="200" width="48" height="48" fill="#005587" stroke-width="3"/>
 ```
 
+> ⚠️ **Icon Color Rule**: For `<use data-icon="...">` tags, ALWAYS use `fill="#HEX"` to set the color. NEVER use `stroke` or `fill="none"` on these placeholders, even for stroke-style libraries.
+>
+> `stroke-width` on the placeholder (stroke-style libraries only — currently `tabler-outline`): allowed values `1.5` / `2` / `3`. **If `spec_lock.md icons` declares `stroke_width`, every placeholder MUST use that exact value, deck-wide.** If the field is absent (legacy decks), default to `2`. Ignored on non-stroke libraries (`chunk-filled` / `tabler-filled` / `phosphor-duotone` / `simple-icons`). Values outside `{1.5, 2, 3}` are forbidden — heavier weight requires switching library, not thicker strokes.
+>
 > No need to manually run `embed_icons.py`; `finalize_svg.py` post-processing tool will auto-embed icons.
-
-**Three icon libraries**:
-
-| Library | Style | Count | Prefix | When to use |
-|---------|-------|-------|--------|-------------|
-| `chunk` | fill · straight-line geometry (sharp corners, rectilinear) | 640 | `chunk/` | ✅ **Default** — most scenarios |
-| `tabler-filled` | fill · bezier-curve forms (smooth, rounded contours) | 1000+ | `tabler-filled/` | When design calls for smooth, rounded, organic icon forms |
-| `tabler-outline` | stroke/line | 5000+ | `tabler-outline/` | Screen-only decks needing a light, elegant aesthetic |
-
-> ⚠️ **One presentation = one library.** Never mix icons from different libraries. If the chosen library lacks an exact icon, find the closest available alternative **within that same library** — do not cross into another library to fill the gap.
 
 **Searching for icons** — use terminal, zero token cost:
 ```bash
-ls skills/ppt-master/templates/icons/chunk/ | grep home
+ls skills/ppt-master/templates/icons/chunk-filled/ | grep home
 ls skills/ppt-master/templates/icons/tabler-filled/ | grep home
 ls skills/ppt-master/templates/icons/tabler-outline/ | grep chart
+ls skills/ppt-master/templates/icons/phosphor-duotone/ | grep house
+ls skills/ppt-master/templates/icons/simple-icons/ | grep github
 ```
 
-**Abstract concept → icon name** (names for `chunk`; tabler libraries use their own equivalents — verify with `ls | grep`):
+**Abstract concept → icon name** (names for `chunk-filled`; tabler libraries use their own equivalents — verify with `ls | grep`):
 
-| Concept | chunk | tabler-filled / tabler-outline |
+| Concept | chunk-filled | tabler-filled / tabler-outline |
 |---------|-------|-------------------------------|
 | Growth / Increase | `arrow-trend-up` | same |
 | Decline / Decrease | `arrow-trend-down` | same |
@@ -161,7 +168,7 @@ ls skills/ppt-master/templates/icons/tabler-outline/ | grep chart
 | Expand / Scale | `maximize` | same |
 | Problem / Issue | `bug` | same |
 
-> For self-evident names (home, user, file, search, arrow, etc.) — just `grep chunk/` directly without consulting the table.
+> For self-evident names (home, user, file, search, arrow, etc.) — just `grep chunk-filled/` directly without consulting the table.
 
 > ⚠️ **Icon validation rule**: If the Design Specification includes an icon inventory list, Executor may **only** use icons from that approved list. Before using any icon, verify it exists via `ls | grep` search. **Mixing icons from different libraries in the same presentation is FORBIDDEN** — use only the library specified in the Design Spec.
 
@@ -171,11 +178,10 @@ ls skills/ppt-master/templates/icons/tabler-outline/ | grep chart
 
 When the Design Spec includes a **VII. Visualization Reference List**, read the referenced SVG templates from `templates/charts/` before drawing pages that use those visualization types. The path remains `templates/charts/` for backward compatibility.
 
-🚧 **GATE — Mandatory read before first use**: When Executor encounters a visualization type listed in Section VII of the Design Spec for the first time, Executor **MUST** `read_file templates/charts/<chart_name>.svg` **before** generating that page. Extract the layout coordinates, card structure, spacing rhythm, and visual logic from the template as **creative reference and inspiration** — not as a strict copy. Then design the page independently using the project's own color scheme, typography, and content.
+**Reading is mandatory; copying is not.** On first use of any visualization type listed in section VII, read `templates/charts/<chart_name>.svg` before generating that page. Do not improvise from memory. Use the template as reference for layout, card structure, spacing, and visual logic — apply the project's color scheme, typography, and content; do not replicate verbatim.
 
-> **Workflow**: read template SVG → understand structure & spacing → design original SVG informed by the reference → do NOT replicate the template verbatim.
-> **Reuse**: Once a visualization type has been read and understood, there is no need to re-read for subsequent pages of the same type.
-> **Change**: Read the new template when the visualization type changes or the structure needs re-reference.
+> **Reuse**: no re-read for subsequent pages of the same type.
+> **Change**: re-read when the visualization type changes.
 
 **Adaptation rules**:
 - **Must preserve**: Visualization type (bar/line/pie/timeline/process/framework etc.) as specified in the Design Spec
@@ -183,21 +189,22 @@ When the Design Spec includes a **VII. Visualization Reference List**, read the 
 - **May adjust freely**: Visual composition, axis ranges, grid lines, legend position, spacing, decorative elements — creative freedom is encouraged as long as the chart remains accurate and readable
 - **Must NOT**: Change visualization type without Design Spec justification, or omit data points / structural elements specified in the outline
 
-> Visualization templates: `templates/charts/` (52 types). Index: `templates/charts/charts_index.json`
+> Visualization templates: `templates/charts/` (70 types). Index: `templates/charts/charts_index.json`
 
 ---
 
 ## 6. Image Handling
 
-Handle images based on their status in the Design Specification's "Image Resource List":
+Handle images based on their status in the Design Specification's "Image Resource List". Status names and lifecycle are defined in [`svg-image-embedding.md`](svg-image-embedding.md).
 
 | Status | Source | Handling |
 |--------|--------|----------|
 | **Existing** | User-provided | Reference images directly from `../images/` directory |
-| **AI-generated** | Generated by Image_Generator | Images already in `../images/`, reference directly |
+| **Generated** | Generated by Image_Generator | Reference images directly from `../images/` directory |
+| **Needs-Manual** | Generation failed and file is absent | Use dashed border placeholder unless the expected file exists |
 | **Placeholder** | Not yet prepared | Use dashed border placeholder |
 
-**Reference**: `<image href="../images/xxx.png" ... preserveAspectRatio="xMidYMid slice"/>`
+**Reference syntax**: see [`svg-image-embedding.md`](svg-image-embedding.md).
 
 **Placeholder**: Dashed border `<rect stroke-dasharray="8,4" .../>` + description text
 
@@ -205,14 +212,11 @@ Handle images based on their status in the Design Specification's "Image Resourc
 
 ## 7. Font Usage
 
-Apply corresponding fonts for different text roles based on the font plan in the Design Specification & Content Outline:
+Font family per role is governed by `spec_lock.md typography` — that file is the source of truth. Read `font_family` as the default, plus any `*_family` override (`title_family` / `body_family` / `emphasis_family` / `code_family` / etc.); roles without an explicit override fall back to `font_family`.
 
-| Role | Chinese Recommended | English Recommended |
-|------|--------------------|--------------------|
-| Title font | Microsoft YaHei / KaiTi / SimHei | Arial / Georgia |
-| Body font | Microsoft YaHei / SimSun | Calibri / Times |
-| Emphasis font | SimHei | Arial Black / Consolas |
-| Annotation font | Microsoft YaHei / SimSun | Arial / Times |
+If `spec_lock.md` is absent for any reason, consult the seed combinations and PPT-safe discipline in [`strategist.md`](strategist.md) §g "Typography Plan Confirmation" rather than inventing a stack.
+
+**Hard rule — never violate**: every `font-family` stack emitted into SVG MUST end with a cross-platform pre-installed family (Microsoft YaHei / SimHei / SimSun / Arial / Calibri / Segoe UI / Times New Roman / Georgia / Consolas / Courier New / Impact / Arial Black). PPTX stores a single `typeface` per run with no runtime fallback — a missing font silently degrades to Calibri on the viewer's machine.
 
 ---
 
@@ -272,7 +276,7 @@ Automatically split `notes/total.md` into individual speaker note files in the `
 
 > **Auto-continuation**: After Visual Construction Phase (all SVG pages) and Logic Construction Phase (all notes) are complete, the Executor proceeds directly to the post-processing pipeline.
 
-**Post-processing & Export** (see [shared-standards.md](shared-standards.md)):
+**Post-processing & Export** (same canonical pipeline as [shared-standards.md §5](shared-standards.md)):
 
 ```bash
 # 1. Split speaker notes

@@ -67,7 +67,7 @@ For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
 |-------|------|---------|
 | Layout templates | `${SKILL_DIR}/templates/layouts/layouts_index.json` | Query available page layout templates |
 | Visualization templates | `${SKILL_DIR}/templates/charts/charts_index.json` | Query available visualization SVG templates (charts, infographics, diagrams, frameworks) |
-| Icon library | `${SKILL_DIR}/templates/icons/` | Search icons on demand: `ls templates/icons/<library>/ \| grep <keyword>` (libraries: `chunk/`, `tabler-filled/`, `tabler-outline/`) |
+| Icon library | `${SKILL_DIR}/templates/icons/` | See `${SKILL_DIR}/templates/icons/README.md`; search icons on demand with `ls templates/icons/<library>/ \| grep <keyword>` |
 
 ## Standalone Workflows
 
@@ -212,19 +212,22 @@ python3 ${SKILL_DIR}/scripts/analyze_images.py <project_path>/images
 
 Read `references/image-generator.md`
 
-1. Extract all images with status "pending generation" from the design spec
+1. Extract all images with status `Pending` from the design spec
 2. Generate prompt document → `<project_path>/images/image_prompts.md`
 3. Generate images (CLI tool recommended):
    ```bash
    python3 ${SKILL_DIR}/scripts/image_gen.py "prompt" --aspect_ratio 16:9 --image_size 1K -o <project_path>/images
    ```
 
-**✅ Checkpoint — Confirm all images are ready, proceed to Step 6**:
+**✅ Checkpoint — Confirm image generation attempted for every row, proceed to Step 6**:
 ```markdown
 ## ✅ Image_Generator Phase Complete
 - [x] Prompt document created
-- [x] All images saved to images/
+- [x] Each image: status is either `Generated` (file present in images/) or `Needs-Manual` (reported to user with filename + reason)
+- [x] No row remains `Pending`
 ```
+
+> On generation failure, do NOT halt — follow the Failure Handling rule in `references/image-generator.md` §4.3: retry once, then mark the row `Needs-Manual`, report to user, and continue to Step 6.
 
 ---
 
@@ -252,13 +255,22 @@ Read references/executor-consultant-top.md # Top consulting style (MBB level)
 **Visual Construction Phase**:
 - Generate SVG pages sequentially, one page at a time, in one continuous pass → `<project_path>/svg_output/`
 
+**Quality Check Gate (Mandatory)** — after all SVGs are generated and BEFORE speaker notes:
+```bash
+python3 ${SKILL_DIR}/scripts/svg_quality_checker.py <project_path>
+```
+- Any `error` (banned SVG features, viewBox mismatch, spec_lock drift, etc.) MUST be fixed on the offending page before proceeding — go back to Visual Construction, re-generate that page, re-run the check.
+- `warning` entries (e.g., low-resolution image, non-PPT-safe font tail) should be reviewed and fixed when straightforward; may be acknowledged and released otherwise.
+- Running the checker against `svg_output/` is required — running it only after `finalize_svg.py` is too late (finalize rewrites SVG and some violations get masked).
+
 **Logic Construction Phase**:
 - Generate speaker notes → `<project_path>/notes/total.md`
 
-**✅ Checkpoint — Confirm all SVGs and notes are fully generated. Proceed directly to Step 7 post-processing**:
+**✅ Checkpoint — Confirm all SVGs and notes are fully generated and quality-checked. Proceed directly to Step 7 post-processing**:
 ```markdown
 ## ✅ Executor Phase Complete
 - [x] All SVGs generated to svg_output/
+- [x] svg_quality_checker.py passed (0 errors)
 - [x] Speaker notes generated at notes/total.md
 ```
 
@@ -270,6 +282,8 @@ Read references/executor-consultant-top.md # Top consulting style (MBB level)
 
 > ⚠️ The following three sub-steps MUST be **executed individually one at a time**. Each command must complete and be confirmed successful before running the next.
 > ❌ **NEVER** put all three commands in a single code block or single shell invocation.
+
+Run the canonical three-command pipeline (same as `references/shared-standards.md` §5):
 
 **Step 7.1** — Split speaker notes:
 ```bash
@@ -285,8 +299,6 @@ python3 ${SKILL_DIR}/scripts/finalize_svg.py <project_path>
 ```bash
 python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path> -s final
 # Output: exports/<project_name>_<timestamp>.pptx + exports/<project_name>_<timestamp>_svg.pptx
-# Use --only native  to skip SVG reference version
-# Use --only legacy  to only generate SVG image version
 ```
 
 > ❌ **NEVER** use `cp` as a substitute for `finalize_svg.py` — it performs multiple critical processing steps
@@ -315,11 +327,11 @@ Before switching roles, you **MUST first read** the corresponding reference file
 | Canvas format specification | `references/canvas-formats.md` |
 | Image layout specification | `references/image-layout-spec.md` |
 | SVG image embedding | `references/svg-image-embedding.md` |
+| Icon library | `templates/icons/README.md` |
 
 ---
 
 ## Notes
 
-- Do NOT add extra flags like `--only` to the post-processing commands — run them as-is
 - Local preview: `python3 -m http.server -d <project_path>/svg_final 8000`
 - **Troubleshooting**: If the user encounters issues during generation (layout overflow, export errors, blank images, etc.), recommend checking `docs/faq.md` — it contains known solutions sourced from real user reports and is continuously updated

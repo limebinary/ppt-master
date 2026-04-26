@@ -50,7 +50,20 @@ PPT Master is different:
 - **Data stays local** — your files shouldn't have to be uploaded to someone else's server just to make a presentation. Apart from AI model communication, the entire pipeline runs on your machine
 - **No platform lock-in** — your workflow shouldn't be held hostage by any single company. Works with Claude Code, Cursor, VS Code Copilot, and more; supports Claude, GPT, Gemini, Kimi, and other models
 
-**[See live examples →](https://hugohe3.github.io/ppt-master/)** · [`examples/`](./examples/) — 15 projects, 229 pages
+**What category this tool belongs to**
+
+AI presentation tools roughly fall into four categories. PPT Master only does the last one:
+
+| Category | Output | Editable element-by-element in PowerPoint? |
+|---|---|:---:|
+| Template fill-in | PPTX built from a fixed template | Partially — limited by the template |
+| Image-based | One large image per slide, packed into PPTX | ❌ each slide is a picture |
+| HTML presentation | Web-based deck | ❌ not a PPTX |
+| **Native editable (PPT Master)** | **Real DrawingML shapes, text boxes, charts** | ✅ click any element to edit |
+
+If all you need is a deck that "looks usable," the first three are faster and cheaper. **PPT Master is for people who need to keep editing the deck in PowerPoint afterward** — incorporating it into formal materials, pitch decks, reports, etc. That positioning means each deck costs more to generate than template fill-in tools — not because the pipeline is unoptimized, but because the output itself is a more expensive artifact.
+
+**[See live examples →](https://hugohe3.github.io/ppt-master/)** · [`examples/`](./examples/) — 22 projects, 309 pages
 
 ## Gallery
 
@@ -97,11 +110,12 @@ If PPT Master has been helpful to you, consider chipping in. Sponsorship directl
 
 Any amount is appreciated.
 
-**Enterprise / Custom work**
+**Custom templates**
 
-Need a custom industry template, private deployment, or integration consulting? I take on a limited number of paid engagements each quarter.
+Want a template that matches your brand or industry? Two paths:
 
-📧 [heyug3@gmail.com](mailto:heyug3@gmail.com)
+- **Do it yourself** — PPT Master ships with a built-in `/create-template` workflow. Walkthrough in [FAQ — How do I create a custom template?](./docs/faq.md#q-how-do-i-create-a-custom-template); spec in [`workflows/create-template.md`](./skills/ppt-master/workflows/create-template.md).
+- **Hire me** — for complex brand systems, private deployment, or integration consulting, I take on a limited number of paid engagements each quarter. 📧 [heyug3@gmail.com](mailto:heyug3@gmail.com)
 
 ---
 
@@ -162,13 +176,17 @@ sudo apt install pandoc
 ```
 </details>
 
-### 2. Pick an AI Editor
+### 2. Pick an Agent
 
-| Tool | Rating | Notes |
-|------|:------:|-------|
-| **[Claude Code](https://claude.ai/)** | ⭐⭐⭐ | Best results — native Opus, largest context |
-| [Cursor](https://cursor.sh/) / [VS Code + Copilot](https://code.visualstudio.com/) | ⭐⭐ | Good alternatives |
-| Codebuddy IDE | ⭐⭐ | Best for Chinese models (Kimi 2.5, MiniMax-M2.7) |
+PPT Master runs in **any tool with agent capability** — read/write files, execute commands, and sustain multi-turn conversation.
+
+| Type | Examples | Notes |
+|---|---|---|
+| **IDE-native agent** | • VS Code architecture ([VS Code](https://code.visualstudio.com/) itself, plus forks & derivatives): [Cursor](https://cursor.sh/), Trae, Codebuddy IDE, [Windsurf](https://codeium.com/windsurf), Void, etc.<br>• Other architectures: [Zed](https://zed.dev/), etc. | Editor with a built-in agent |
+| **IDE plugin / extension** | [GitHub Copilot](https://github.com/features/copilot), [Claude Code](https://claude.ai/code) (VS Code / JetBrains extension), [Cline](https://cline.bot/), [Continue](https://continue.dev/), Roo Code, etc. | Installed inside hosts like VS Code or JetBrains |
+| **CLI agent** | [Claude Code](https://claude.ai/code) CLI, [Codex CLI](https://github.com/openai/codex), [Aider](https://aider.chat/), Gemini CLI, etc. | Runs in the terminal; suits scripting, remote, or server use |
+
+> **Model recommendation**: [Claude](https://claude.ai/) Opus / Sonnet works best and is most tested. Other mainstream models (GPT, Gemini, Kimi, MiniMax, etc.) also work, but SVG absolute-coordinate layout precision varies.
 
 ### 3. Set Up
 
@@ -246,9 +264,10 @@ Multiple backends are supported across Core / Extended / Experimental tiers. Run
 | 🆚 | [Why PPT Master](./docs/why-ppt-master.md) | How it compares to Gamma, Copilot, and other AI tools |
 | 🪟 | [Windows Installation](./docs/windows-installation.md) | Step-by-step setup guide for Windows users |
 | 📖 | [SKILL.md](./skills/ppt-master/SKILL.md) | Core workflow and rules |
+| 🎨 | [Create a Custom Template](./skills/ppt-master/workflows/create-template.md) | Standalone workflow for building your own brand or industry template |
 | 📐 | [Canvas Formats](./skills/ppt-master/references/canvas-formats.md) | PPT 16:9, Xiaohongshu, WeChat, and 10+ formats |
 | 🛠️ | [Scripts & Tools](./skills/ppt-master/scripts/README.md) | All scripts and commands |
-| 💼 | [Examples](./examples/README.md) | 15 projects, 229 pages |
+| 💼 | [Examples](./examples/README.md) | 22 projects, 309 pages |
 | 🏗️ | [Technical Design](./docs/technical-design.md) | Architecture, design philosophy, why SVG |
 | ❓ | [FAQ](./docs/faq.md) | Model selection, cost, layout troubleshooting, custom templates |
 
@@ -264,7 +283,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to get involved.
 
 ## Acknowledgments
 
-[SVG Repo](https://www.svgrepo.com/) · [Tabler Icons](https://github.com/tabler/tabler-icons) · [Robin Williams](https://en.wikipedia.org/wiki/Robin_Williams_(author)) (CRAP principles) · McKinsey, BCG, Bain
+[SVG Repo](https://www.svgrepo.com/) · [Tabler Icons](https://github.com/tabler/tabler-icons) · [Simple Icons](https://github.com/simple-icons/simple-icons) · [Phosphor Icons](https://github.com/phosphor-icons/core) · [Robin Williams](https://en.wikipedia.org/wiki/Robin_Williams_(author)) (CRAP principles)
 
 ## Contact & Collaboration
 
@@ -274,7 +293,7 @@ Looking to collaborate, integrate PPT Master into your workflow, or just have qu
 - 🐛 **Bug reports & feature requests** — [GitHub Issues](https://github.com/hugohe3/ppt-master/issues)
 - 🌐 **Learn more about the author** — [www.hehugo.com](https://www.hehugo.com/)
 
-> For enterprise / consulting / custom-template work, see the **[Support This Project](#support-this-project)** section above.
+> Want to build your own template? See [FAQ — custom templates](./docs/faq.md#q-how-do-i-create-a-custom-template). For paid brand / consulting work, see **[Support This Project](#support-this-project)**.
 
 ---
 

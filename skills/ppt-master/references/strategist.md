@@ -14,29 +14,7 @@ As a top-tier AI presentation strategist, receive source documents, perform cont
 
 ## Canvas Format Quick Reference
 
-### Presentations
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| PPT 16:9 | `0 0 1280 720` | 1280x720 | 16:9 |
-| PPT 4:3 | `0 0 1024 768` | 1024x768 | 4:3 |
-
-### Social Media
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| Xiaohongshu (RED) | `0 0 1242 1660` | 1242x1660 | 3:4 |
-| WeChat Moments / Instagram Post | `0 0 1080 1080` | 1080x1080 | 1:1 |
-| Story / TikTok Vertical | `0 0 1080 1920` | 1080x1920 | 9:16 |
-
-### Marketing Materials
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| WeChat Article Header | `0 0 900 383` | 900x383 | 2.35:1 |
-| Landscape Banner | `0 0 1920 1080` | 1920x1080 | 16:9 |
-| Portrait Poster | `0 0 1080 1920` | 1080x1920 | 9:16 |
-| A4 Print (150dpi) | `0 0 1240 1754` | 1240x1754 | 1:1.414 |
+> See [`canvas-formats.md`](canvas-formats.md) for the full format table (presentations / social / marketing) and the format-selection decision tree.
 
 ---
 
@@ -54,7 +32,7 @@ The design_spec.md output **MUST** follow this template's structure exactly (Sec
 
 ### a. Canvas Format Confirmation
 
-Recommend format based on scenario (see Canvas Format Quick Reference above).
+Recommend format based on scenario (see [`canvas-formats.md`](canvas-formats.md)).
 
 ### b. Page Count Confirmation
 
@@ -110,25 +88,24 @@ Proactively provide a color scheme (HEX values) based on content characteristics
 | **C** | Built-in icon library | Professional scenarios (recommended) |
 | **D** | Custom icons | Has brand assets |
 
-Built-in library contains 6700+ icons across three libraries:
+The built-in icon library contains multiple stylistic libraries plus a brand-logo library:
 
-| Library | Style | Count | Prefix | When to use |
-|---------|-------|-------|--------|-------------|
-| `chunk` | fill · straight-line geometry (sharp corners, rectilinear) | 640 | `chunk/` | Sharp, structured, engineered feel |
-| `tabler-filled` | fill · bezier-curve forms (smooth, rounded contours) | 1000+ | `tabler-filled/` | Warm, rounded, organic feel |
-| `tabler-outline` | stroke/line | 5000+ | `tabler-outline/` | Light, elegant, screen-only aesthetic |
+See [`../templates/icons/README.md`](../templates/icons/README.md) for the current library inventory, counts, prefixes, and SVG placeholder details.
 
 > **Mandatory rules when choosing C**:
-> 1. **No default library — actively choose based on content tone.** Read the source material and judge its character before locking a library. Common mappings (reference, not rules):
->    - **Tech / engineering / enterprise / data** → `chunk` — sharp, rectilinear geometry (M/L/H/V/Z only) matches the precise, structured tone
->    - **Lifestyle / health / home / wellness** → `tabler-filled` — smooth bezier curves and arcs (C/A) match the warm, organic tone
->    - **Light, refined, minimal showcases** (screen-only) → `tabler-outline` — stroke-only forms match the airy, elegant tone
->    - When content tone doesn't cleanly match any row above, pick the library whose visual character best serves the deck — explain the choice in the Design Spec.
->    - ⚠️ **One presentation = one library.** Mixing icons from different libraries is FORBIDDEN. If a chosen library lacks an exact icon, find the closest alternative **within that same library**.
+> 1. **Pick exactly one stylistic library** — read the source material, then choose the library whose visual character best serves the deck:
+>    - **`chunk-filled`** — fill, straight-line geometry (M/L/H/V/Z only); sharp right angles; heavy, solid, architectural
+>    - **`tabler-filled`** — fill, bezier curves and arcs (C/A); smooth, rounded, organic; medium weight, approachable
+>    - **`tabler-outline`** — stroke (line art); airy, refined, lightweight; best for screen-only (thin strokes may be hard to read in print)
+>    - **`phosphor-duotone`** — duotone; main shape + 20% opacity backplate; medium weight, layered, contemporary
+>    - ⚠️ **One presentation = one stylistic library** for generic icons (home, chart, users, etc.). Mixing `chunk-filled` / `tabler-filled` / `tabler-outline` / `phosphor-duotone` is FORBIDDEN. If the chosen library lacks an exact icon, find the closest alternative **within that same library**.
+>    - **Brand-logo exception**: `simple-icons` is NOT a stylistic library. Add it to the deck's icon inventory **only when** the deck genuinely contains real company / product / service brand marks (customer logos, tech-stack icons, social handles). Never substitute it for a missing generic icon.
 > 2. Search for icon availability: `ls skills/ppt-master/templates/icons/<chosen-library>/ | grep <keyword>`
 > 3. Use the verified filename (without `.svg`) as the icon name
-> 4. Always include the library prefix (e.g., `chunk/home` or `tabler-filled/home`)
+> 4. Always include the library prefix (e.g., `chunk-filled/home` or `tabler-filled/home`)
 > 5. List the final icon inventory and chosen library in the Design Spec; Executor may only use icons from this list
+> 6. **Stroke weight lock (stroke-style libraries only)** — when the chosen library is stroke-based (currently `tabler-outline`; applies to any future stroke library too), pick exactly one deck-wide value from `{1.5, 2, 3}` and record it as `stroke_width` in `spec_lock.md icons`. Default is `2`; pick `1.5` for refined / editorial tone, `3` for bolder presence on dense decks. Non-stroke libraries (`chunk-filled` / `tabler-filled` / `phosphor-duotone` / `simple-icons`) ignore this — omit the field entirely.
+>    - **Why not `4` or higher?** On Tabler's 24×24 viewBox a 4-px stroke is 1/6 of the icon width — adjacent strokes merge and inner negative space collapses, so the icon stops reading as line art. If you want heavier visual presence, **switch the library** (to `tabler-filled` or `chunk-filled`) instead of fattening the stroke; that is precisely why multiple stylistic libraries exist.
 >
 > **Do NOT preload any index file** — use `ls | grep` to search on demand with zero token cost.
 
@@ -184,9 +161,9 @@ Built-in library contains 6700+ icons across three libraries:
 
 > **Ramp discipline, not a fixed menu.** Every size in the deck is derived from the `body` baseline as a ratio. The `spec_lock.md typography` block declares `body` as the anchor plus whichever common slots this deck actually uses (`title` / `subtitle` / `annotation` by default; add `cover_title` / `hero_number` / `chart_annotation` etc. when the content calls for them). Executor may use intermediate sizes during generation as long as the size's ratio to `body` lands within the corresponding role's band below — the list is a ramp, not an allowed-values enumeration.
 
-Selection principle: Baseline choice is driven by **content density**, not design style.
+Selection principle: Baseline choice is driven by **content density**, not design style. `18px` and `24px` are the two most commonly used values — any other integer baseline is fine as long as it is reasonable for the content (e.g., 16px for chart-heavy pages, 20 / 22px for medium density, 28–32px for poster / cover-like decks with very little text). The ratio bands apply to whatever `body` the deck declares.
 
-| Content Density | Points per Page | Body Baseline | Suitable Scenarios |
+| Common recommendation | Points per Page | Body Baseline | Suitable Scenarios |
 |----------------|----------------|---------------|-------------------|
 | Relaxed | 3-5 items | 24px | Keynote-style, training materials |
 | Dense | 6+ items | 18px | Data reports, consulting analysis |
@@ -202,6 +179,8 @@ Selection principle: Baseline choice is driven by **content density**, not desig
 | Annotation / caption | 0.7-0.85x | 17-20px | 13-15px |
 | Page number / footnote | 0.5-0.65x | 12-16px | 9-12px |
 
+> Columns show two commonly recommended baselines only for illustration. For any other baseline — 16, 20, 22, 28, 32 … — multiply each row's ratio against that value to derive this deck's actual bands. The checker's `_check_spec_lock_drift` reads the live `body` value from `spec_lock.md` and applies ratio bands on top, so no code change is needed to support a different baseline.
+>
 > Executor may pick any px value within a role's band (e.g., 40px hero number, 13px chart annotation, 72px cover headline) without having to pre-declare every intermediate value in `spec_lock.md`. Values outside **every** band remain forbidden — those need the lock extended first.
 
 ### h. Image Usage Confirmation
@@ -225,7 +204,7 @@ Selection principle: Baseline choice is driven by **content density**, not desig
 | Layout suggestion | e.g., `Wide landscape (suitable for full-screen/illustration)` |
 | Purpose | e.g., `Cover background` |
 | Type | Background / Photography / Illustration / Diagram / Decorative pattern |
-| Status | Pending generation / Existing / Placeholder |
+| Status | Initial status must be `Pending`, `Existing`, or `Placeholder`; see [`svg-image-embedding.md`](svg-image-embedding.md) for the full status enum |
 | Generation description | Fill in detailed description for AI generation |
 
 **Generation description quality guide** — the description is the seed for Image_Generator's prompt, so specificity matters:
@@ -276,26 +255,33 @@ Core logic (side-by-side only): the container's aspect ratio must closely match 
 
 > **Multi-image slides**: When multiple images appear on one page, use the grid formulas in the "Multi-Image Layout" section of `references/image-layout-spec.md`.
 
-> **Pipeline handoff**: When C) AI generation is selected, after outputting the design spec, prompt the user to invoke Image_Generator. Once images are collected in `images/`, proceed to Executor.
+> **Pipeline handoff**: When C) AI generation is selected, Image_Generator consumes `Pending` rows and updates them to `Generated` or `Needs-Manual` before Executor proceeds. Status names are defined in [`svg-image-embedding.md`](svg-image-embedding.md).
 
 ### Visualization Reference (Non-blocking — Strategist recommends, no user confirmation needed)
 
 When content outline pages involve **data visualization or infographic-style structured information design** (comparisons, trends, proportions, KPIs, flows, timelines, org structures, strategic frameworks, etc.), Strategist should select appropriate visualization types from the built-in template library.
 
-> **Mandatory first step**: At the beginning of content planning, **read the full `templates/charts/charts_index.json`** file. This index contains all available visualization templates (52 types across 8 categories), including each template's `summary`, `bestFor`, `avoidFor`, and `keywords`. Strategist must internalize the full catalog before making selections — do NOT rely on memory or partial lists.
-
-> **Selection workflow**:
-> 1. Read and internalize the complete `templates/charts/charts_index.json`
-> 2. For each page in the content outline, determine whether it needs visualization based on its information structure
-> 3. Match page content against the `bestFor` / `avoidFor` / `keywords` fields across all 52 templates to find the best fit
-> 4. Use `quickLookup` as a secondary cross-reference when multiple candidates seem suitable
-> 5. List all selected visualizations in Design Spec **section VII (Visualization Reference List)** as a centralized reference; in section IX Content Outline, each page only needs to note the visualization type name
+> **Reading is mandatory; using is per-page judgment.**
+> - Fully read `templates/charts/charts_index.json` before content planning. Each `summary` is a selection rule (`"Pick for … Skip if …"`), not a description.
+> - Not every page needs a chart. But when a page's information structure matches a catalog entry, design with that template as reference — do not improvise.
 >
-> **Rules**:
-> - Strategist is responsible for **semantic selection** (which type fits the content), not detailed SVG styling
-> - One page may use at most one primary visualization type; complex pages may combine a chart with a supporting layout
-> - Prefer specificity: if `vertical_list` fits better than generic `numbered_steps`, choose the more specific template
-> - When no built-in template fits, note "custom layout" instead of forcing a poor match
+> **Workflow**:
+> 1. Match each page against `summary` / `keywords` across all entries; use `quickLookup` for cross-check.
+> 2. Prefer specificity (`vertical_list` over generic `numbered_steps`).
+> 3. One primary visualization per page; a supporting layout may accompany it.
+> 4. List selections in Design Spec section VII; section IX only notes the visualization type name per page.
+>
+> **Read-audit (mandatory, written at the top of section VII)**:
+> ```
+> Catalog read: <N> templates / <M> categories
+> Runners-up considered: <key_A> (rejected: <reason>), <key_B> (rejected: <reason>), <key_C> (rejected: <reason>)
+> ```
+> Runners-up must be templates that were genuinely the second-best match for some page in this deck. If fewer than 3 visualization pages exist, list what exists and note "fewer than 3 viz pages".
+>
+> **Fallback when no template fits**:
+> 1. Re-scan `categories` and `quickLookup` — concepts often live under non-obvious labels (e.g. "causal chain" → `process_flow` / `sankey_chart` under `process`).
+> 2. If still no fit: data-driven content → table layout; conceptual/illustrative → "AI-generated image" (Image_Generator handles); structural → "custom layout".
+> 3. Mark the page `no-template-match` in section VII with the fallback chosen and why. Do NOT silently substitute a close-but-wrong chart.
 
 ### Speaker Notes Requirements (Default — no discussion needed)
 

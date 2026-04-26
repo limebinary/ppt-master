@@ -8,6 +8,19 @@ Common technical constraints for PPT Master, eliminating cross-role file duplica
 
 The following features are **absolutely forbidden** when generating SVGs — PPT export will break if any are used:
 
+### 1.0 Text characters: must be well-formed XML
+
+SVG is strict XML. Two rules apply to all text and attribute values:
+
+| Character category | Required form | Forbidden form |
+|---|---|---|
+| Typography & symbols (em dash, en dash, ©, ®, →, ·, NBSP, full-width punctuation, emoji…) | **Raw Unicode characters** — write `—` `–` `©` `®` `→` directly | HTML named entities — `&mdash;` `&ndash;` `&copy;` `&reg;` `&rarr;` `&middot;` `&nbsp;` `&hellip;` `&bull;` etc. |
+| XML reserved characters (`&`, `<`, `>`, `"`, `'`) | **XML entities only** — `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` (e.g. `R&amp;D`, `error &lt; 5%`) | Bare `&` `<` `>` (e.g. `R&D`, `error < 5%`) |
+
+A single offending character invalidates the whole file and aborts the deck export. Numeric character references (`&#160;` / `&#xa0;`) are XML-legal but discouraged.
+
+**Structural blacklist** (in addition to the character rules above):
+
 | Banned Feature | Description |
 |----------------|-------------|
 | `mask` | Masks |
@@ -25,6 +38,8 @@ The following features are **absolutely forbidden** when generating SVGs — PPT
 > **`marker-start` / `marker-end` is conditionally allowed** — see §1.1 for constraints. The converter maps qualifying markers to native DrawingML `<a:headEnd>` / `<a:tailEnd>`.
 >
 > **`clipPath` on `<image>` is conditionally allowed** — see §1.2 for constraints. The converter maps qualifying clip shapes to native DrawingML picture geometry (`<a:prstGeom>` or `<a:custGeom>`).
+>
+> **Replacing `<mask>` effects** — DrawingML has no continuous per-pixel alpha channel, so `<mask>` cannot be mapped. Route by effect type: image gradient overlays (vignette, fade, tint) → stacked `<rect>` with `<linearGradient>` / `<radialGradient>` (see §6 Image Overlay); non-rectangular image crop (circle, rounded, hexagon) → `clipPath` on `<image>` (see §1.2); inner glow / soft-edge → `<filter>` with `<feGaussianBlur>` (see §6 Glow Effect); drop shadow → filter shadow or layered rect (see §6 Shadow). Effects requiring true pixel-level alpha — text-knockout image fills, arbitrary alpha composites — have no PPT-side path and MUST be baked into the source image at the Image_Generator stage.
 
 ---
 
@@ -141,29 +156,7 @@ The following features are **absolutely forbidden** when generating SVGs — PPT
 
 ## 3. Canvas Format Quick Reference
 
-### Presentations
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| PPT 16:9 | `0 0 1280 720` | 1280x720 | 16:9 |
-| PPT 4:3 | `0 0 1024 768` | 1024x768 | 4:3 |
-
-### Social Media
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| Xiaohongshu (RED) | `0 0 1242 1660` | 1242x1660 | 3:4 |
-| WeChat Moments / Instagram Post | `0 0 1080 1080` | 1080x1080 | 1:1 |
-| Story / TikTok Vertical | `0 0 1080 1920` | 1080x1920 | 9:16 |
-
-### Marketing Materials
-
-| Format | viewBox | Dimensions | Ratio |
-|--------|---------|------------|-------|
-| WeChat Article Header | `0 0 900 383` | 900x383 | 2.35:1 |
-| Landscape Banner | `0 0 1920 1080` | 1920x1080 | 16:9 |
-| Portrait Poster | `0 0 1080 1920` | 1080x1920 | 9:16 |
-| A4 Print (150dpi) | `0 0 1240 1754` | 1240x1754 | 1:1.414 |
+> See [`canvas-formats.md`](canvas-formats.md) for the full format table (presentations / social / marketing) and the format-selection decision tree.
 
 ---
 
@@ -171,12 +164,79 @@ The following features are **absolutely forbidden** when generating SVGs — PPT
 
 - **viewBox** must match the canvas dimensions (`width`/`height` must match `viewBox`)
 - **Background**: Use `<rect>` to define the page background color
-- **Line breaks**: Use `<tspan>` for manual line breaks; `<foreignObject>` is FORBIDDEN
-- **Fonts**: Use system fonts only (Microsoft YaHei, Arial, Calibri, etc.); `@font-face` is FORBIDDEN
+- **`<tspan>` has two purposes**: (1) manual line breaks within a `<text>` (use `dy` / explicit `y`); (2) inline run formatting on the **same** line — local color, weight, size — without splitting the line into separate text frames. `<foreignObject>` is FORBIDDEN. See "Single logical line = single `<text>`" rule below.
+- **Fonts**: Every `font-family` stack MUST end with a cross-platform pre-installed family (Microsoft YaHei / SimSun / Arial / Times New Roman / Consolas / etc.); `@font-face` is FORBIDDEN. See [`strategist.md §g — PPT-safe font discipline`](strategist.md) for the full HARD rule and seed combinations.
 - **Styles**: Use inline styles only (`fill="..."` `font-size="..."`); `<style>` / `class` are FORBIDDEN (`id` inside `<defs>` is legitimate)
 - **Colors**: Use HEX values; for transparency use `fill-opacity` / `stroke-opacity`
 - **Image references**: `<image href="../images/xxx.png" preserveAspectRatio="xMidYMid slice"/>`
-- **Icon placeholders**: `<use data-icon="chunk/name" x="" y="" width="48" height="48" fill="#HEX"/>` (default library); or `tabler-filled/name` / `tabler-outline/name` when that library is chosen for the deck. (auto-embedded during post-processing). Always include the library prefix. **One presentation = one library — never mix libraries.**
+- **Icon placeholders**: `<use data-icon="<library>/<name>" x="" y="" width="48" height="48" fill="#HEX"/>` (auto-embedded during post-processing). Always include the library prefix. Generic icons must use exactly one stylistic library per presentation (`chunk-filled` / `tabler-filled` / `tabler-outline` / `phosphor-duotone`); `simple-icons` may co-exist only for real company / product / service brand marks. See [`../templates/icons/README.md`](../templates/icons/README.md).
+
+### Inline Text Runs (Single Logical Line = Single `<text>`)
+
+A logical single line of text — **even with mixed colors, weights, or sizes** — MUST be one `<text>` element containing inline `<tspan>` children, **never** multiple adjacent `<text>` elements positioned side by side. The `svg_to_pptx` converter maps each inline `<tspan>` to a run (`<a:r>`) within the same PowerPoint text frame, preserving the formatting variation while keeping the line as **one editable shape** in PPT.
+
+✅ **DO** — one `<text>` → one text frame with three runs:
+
+```xml
+<text x="100" y="200" font-size="24" fill="#333333">
+  实现<tspan fill="#1A73E8" font-weight="bold">10倍</tspan>效率提升
+</text>
+```
+
+❌ **DON'T** — three side-by-side `<text>` elements become three separate text frames in PPT (breaks edit-as-one-line, risks alignment drift, makes spacing fragile):
+
+```xml
+<text x="100" y="200" font-size="24" fill="#333333">实现</text>
+<text x="160" y="200" font-size="24" fill="#1A73E8" font-weight="bold">10倍</text>
+<text x="240" y="200" font-size="24" fill="#333333">效率提升</text>
+```
+
+**⚠️ Inline tspans must NOT carry `x` / `y` / `dy`.** Any of those marks the tspan as a new line, and the post-processing `flatten_tspan` step will split it into a separate text frame — defeating the purpose. `dx` is safe (used for kerning/spacing nudges and stays inline). Only set `x` / `y` / `dy` on tspans that genuinely start a new line.
+
+**Multi-line `<text>` with per-line inline emphasis is supported.** An outer line-break tspan (carrying `x` + `dy` or `y`) MAY contain nested inline tspans for color/weight/size — `flatten_tspan` and the converter both walk nested tspans and emit one run per styled segment:
+
+```xml
+<text x="80" y="190" font-size="18" fill="#333333">
+  <tspan x="80" dy="0">完成率<tspan fill="#4CAF50" font-weight="bold">98%</tspan>超预期</tspan>
+  <tspan x="80" dy="35">成本降低<tspan fill="#F44336" font-weight="bold">¥120万</tspan></tspan>
+</text>
+```
+
+❌ **DON'T** — same-line column jump via `<tspan x="...">`:
+
+```xml
+<text x="100" y="200" font-size="18" fill="#333333">
+  <tspan x="100">左列</tspan><tspan x="600" font-weight="bold">右列</tspan>
+</text>
+```
+
+Any `x` on a tspan starts a new line in `flatten_tspan`'s eyes, so the two columns become two independent `<text>` frames in PPT — fragile to edit as one row. For two-column layouts, write two `<text>` elements (or a real two-column structure) instead.
+
+**Default behavior — lift key information out of running text.** Body paragraphs and conclusions rendered as uniform-styled text waste the inline-run capability and read as walls of text. By default, wrap the following in `<tspan fill="..." font-weight="bold">`:
+
+- **Numerical results** — percentages, multipliers (`10x`), absolute amounts (`¥120万`)
+- **Contrasts** — gain/loss, before/after, target/actual
+- **One or two load-bearing nouns per sentence** — the term that carries the insight
+
+Do **NOT** highlight: connectives, common verbs, every noun, decorative adjectives, or structural text (footer / axis label / legend / page number / simple field labels).
+
+Color choice: prefer the deck's primary brand color for emphasis; reserve semantic green/red for text that genuinely encodes positive/negative.
+
+❌ **DON'T** — uniform-styled paragraph buries the insight:
+
+```xml
+<text x="80" y="200" font-size="20" fill="#333333">
+  2024年公司营收同比增长35%达到12亿元创历史新高
+</text>
+```
+
+✅ **DO** — same line, key data lifted:
+
+```xml
+<text x="80" y="200" font-size="20" fill="#333333">
+  2024年公司营收同比<tspan fill="#1A73E8" font-weight="bold">增长35%</tspan>达到<tspan fill="#1A73E8" font-weight="bold">12亿元</tspan>创历史新高
+</text>
+```
 
 ### Element Grouping (Mandatory)
 
@@ -188,7 +248,7 @@ Logically related elements **MUST** be wrapped in `<g>` tags. This produces Powe
 
 | Grouping Unit | Contains |
 |---------------|----------|
-| Card / panel | Background rect + shadow + icon + title + body text |
+| Card / panel | Background rect + (optional shadow only if the card floats over a photo/colored panel — see §6) + icon + title + body text |
 | Process step | Number circle + icon + label + description |
 | List item | Bullet / number + icon + title + description |
 | Icon-text combo | Icon element + adjacent label |
@@ -200,8 +260,9 @@ Logically related elements **MUST** be wrapped in `<g>` tags. This produces Powe
 
 ```xml
 <g id="card-benefits-1">
+  <!-- This card floats over a colored panel — shadow is appropriate. On a flat white canvas, omit the filter. -->
   <rect x="60" y="115" width="565" height="260" rx="20" fill="#FFFFFF" filter="url(#shadow)"/>
-  <use data-icon="bolt" x="108" y="163" width="44" height="44" fill="#0071E3"/>
+  <use data-icon="chunk-filled/bolt" x="108" y="163" width="44" height="44" fill="#0071E3"/>
   <text x="105" y="270" font-size="56" font-weight="bold" fill="#0071E3">10×</text>
   <text x="250" y="270" font-size="30" font-weight="bold" fill="#1D1D1F">Faster</text>
   <text x="105" y="310" font-size="18" fill="#6E6E73">Reduce production time from days to hours.</text>
@@ -243,6 +304,57 @@ python3 scripts/svg_to_pptx.py <project_path> -s final
 
 ### Shadow
 
+> **Shadow is an aesthetic ingredient, not a default treatment.** Restraint, not abundance, produces the "designed" feel. The principles below override any temptation to add shadow "for depth" — read them before reaching for any shadow filter.
+
+#### When to use shadow
+
+Add shadow ONLY when the element genuinely floats above another layer:
+- A card / quote bubble / annotation **sitting on a photo or colored panel**
+- The single primary CTA or "recommended" item that needs to be **picked out from peers**
+- An overlay layer (callout, tooltip, modal-style emphasis)
+- A floating image card on a textured background
+
+#### When NOT to use shadow
+
+Skip shadow entirely on:
+- **Background panels / section dividers / decorative bars** — they are the floor, the floor doesn't lift
+- **Equal peer cards in a 2/3/4-up grid** — if all are lifted, none are; keep all flat
+- **Containers that already have a visible border, gradient fill, or strong background tint** — the "this is a container" job is done; adding shadow is redundant and reads as PPT-template clutter
+- **Body-text paragraph containers** — reading surfaces should sit on the floor, lifting them disrupts scan rhythm
+- **Decorative lines / dividers / icons themselves** — they are symbols, not objects
+- **Pages with only one content container** — there is no second layer to lift above
+- **Dark backgrounds** — black shadows vanish on dark; use a 1px low-opacity white stroke or subtle outer glow instead
+
+**Per-page budget**: at most 2–3 shadowed elements per slide. If you find yourself adding shadow to a 4th element, something else needs to lose its shadow first.
+
+#### Single light source per page
+
+All `feOffset` values on a single page must share the same `dx` and `dy` direction. Real shadows obey one sun. Mixing dy=+6 on some cards and dy=-4 on others looks broken even when the viewer can't articulate why. Default: `dx="0"` with `dy="4"` to `dy="8"` (light from upper front).
+
+#### Restraint over visibility
+
+The high-end aesthetic standard is **"the shadow is felt, not seen."** If a viewer notices "there's a shadow here," it is already too strong.
+- Default `flood-opacity`: **0.06–0.12** for resting cards
+- Maximum `flood-opacity`: **0.20** for genuinely raised elements (CTA, overlay)
+- Above 0.20 = Office 2007 hard-shadow look — avoid
+- Color: near-black with low opacity, OR a darker tint of the page background. Brand-colored shadow only on accent elements that share that hue family.
+
+#### Two-tier elevation maximum
+
+A page may have at most two non-floor elevation levels. More tiers fragment visual hierarchy.
+
+| Tier | When | dy | stdDeviation | flood-opacity |
+|------|------|----|--------------|---------------|
+| Floor (no shadow) | Backgrounds, peer-grid cards, dividers, body-text containers | — | — | — |
+| Resting | Cards on photos/panels, secondary callouts | 2–4 | 4–8 | 0.06–0.10 |
+| Raised | Primary CTA, focused/recommended card, overlay | 6–10 | 10–16 | 0.12–0.20 |
+
+#### Don't stack visual-weight tools
+
+A container's "look at me" budget is small. Pick **one** of: shadow, visible border, gradient fill, strong background tint. Stacking shadow + border + rounded + gradient = instant template look.
+
+---
+
 #### Filter Soft Shadow — Recommended
 
 Best for: cards, floating panels, elevated elements. The `svg_to_pptx` converter automatically converts `feGaussianBlur` + `feOffset` into native PPTX `<a:outerShdw>`.
@@ -252,7 +364,7 @@ Best for: cards, floating panels, elevated elements. The `svg_to_pptx` converter
   <filter id="softShadow" x="-15%" y="-15%" width="140%" height="140%">
     <feGaussianBlur in="SourceAlpha" stdDeviation="12"/>
     <feOffset dx="0" dy="6" result="offsetBlur"/>
-    <feFlood flood-color="#000000" flood-opacity="0.15" result="shadowColor"/>
+    <feFlood flood-color="#000000" flood-opacity="0.10" result="shadowColor"/>
     <feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadow"/>
     <feMerge>
       <feMergeNode in="shadow"/>
@@ -263,12 +375,14 @@ Best for: cards, floating panels, elevated elements. The `svg_to_pptx` converter
 <rect x="60" y="60" width="400" height="240" rx="12" fill="#FFFFFF" filter="url(#softShadow)"/>
 ```
 
-Recommended parameters:
+Recommended parameters (see "Two-tier elevation maximum" above for tier guidance):
 ```
-stdDeviation:   10–16    (smaller = crisper, larger = softer)
-flood-opacity:  0.12–0.20  (too low will be invisible in PPTX)
-dy:             4–8      (vertical > horizontal for natural top-light)
-dx:             0–2
+stdDeviation:   4–16       (resting cards: 4–8;  raised elements: 10–16)
+flood-opacity:  0.06–0.12  (resting cards — default)
+                0.12–0.20  (raised elements only — primary CTA, overlay)
+                NEVER     > 0.20  (Office 2007 hard-shadow look)
+dy:             2–10       (resting: 2–4;  raised: 6–10)
+dx:             0–2        (must match every other shadow on the page — single light source)
 ```
 
 #### Colored Shadow
@@ -288,7 +402,7 @@ Best for: accent buttons, brand-colored cards. Use the element's own color famil
 </filter>
 ```
 
-Replace `flood-color` with the element's brand color; keep `flood-opacity` between 0.15–0.25.
+Replace `flood-color` with the element's brand color; keep `flood-opacity` between 0.12–0.20 (above 0.20 reads as Office 2007 hard-shadow). Reserve colored shadow for the **single primary CTA / accent element per page** — using it on every button defeats the "this one is special" cue.
 
 #### Glow Effect
 
@@ -395,8 +509,10 @@ Best for: slides needing strong visual brand identity.
 
 | Scenario | Recommended Technique | Avoid |
 |----------|-----------------------|-------|
-| Card / panel shadow | Filter soft shadow (`flood-opacity` ≤ 0.12) | Hard black shadow |
-| Accent / CTA button | Colored shadow (same hue family) | Generic gray shadow |
+| Card / panel shadow (only when floating over photo/colored panel) | Filter soft shadow (`flood-opacity` 0.06–0.12, single light source) | Hard black shadow, full-page abundance |
+| Equal peer cards in a grid | All flat (no shadow) | Lifting every card uniformly |
+| Page-section background panel | Flat fill, no shadow | Treating panels as floating cards |
+| Accent / CTA button (one per page) | Colored shadow (same hue family, `flood-opacity` 0.12–0.20) | Generic gray shadow, applying to every button |
 | Title / metric highlight | Glow filter (brand color, no offset) | Overuse on body text |
 | Text over image | Linear gradient overlay (direction matches text side) | Uniform flat opacity over whole image |
 | Cover / full-image slide | Bottom gradient bar + brand color | Solid black overlay |

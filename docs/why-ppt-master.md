@@ -65,7 +65,7 @@ The choice is yours. PPT Master doesn't make that decision for you.
 
 Three built-in styles: General (training, tech talks), Consultant (business reports, data visualization), and Consultant Top (MBB level — investment memos, strategic plans, government briefings).
 
-The [examples/](../examples/) directory contains 15 projects and 229 pages spanning government fiscal analysis, AI architecture design, Zen philosophy, pixel-art gaming, and more.
+The [examples/](../examples/) directory contains 22 projects and 309 pages spanning government fiscal analysis, AI architecture design, Zen philosophy, pixel-art gaming, editorial reports, and more.
 
 ### Full Source-Document Input
 
@@ -87,7 +87,6 @@ Being honest about limitations:
 | **Slower generation** | 10–20 min for a 10-page deck (serial page-by-page for cross-slide consistency). SaaS tools take seconds. |
 | **No collaboration** | Local files, no real-time co-editing, no share links. |
 | **No visual UI** | All interaction through AI chat — no drag-and-drop canvas. |
-| **Charts aren't data-bound** | Charts are visual shapes, not Excel-linked objects. Great-looking but not dynamically updatable. |
 
 **If you want zero-setup, instant slides in a browser** — Gamma and Canva are excellent choices.
 
