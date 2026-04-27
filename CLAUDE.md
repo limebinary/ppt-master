@@ -2,13 +2,13 @@
 
 This file is the project entry point for Claude Code.
 
-Before executing any PPT generation task, **you MUST first read [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md)**. That file is the authoritative workflow for project creation, role switching, strict serial execution, quality gates, post-processing, and export.
+Before any PPT generation task, **you MUST first read [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md)** — the authoritative workflow for project creation, role switching, serial execution, quality gates, post-processing, and export.
 
 ## Project Overview
 
-PPT Master is an AI-driven presentation generation system. Through multi-role collaboration (Strategist → Image_Generator → Executor), it converts source documents (PDF/DOCX/URL/Markdown) into natively editable PPTX with real PowerPoint shapes (DrawingML).
+PPT Master is an AI-driven presentation generation system. Multi-role collaboration (Strategist → Image_Generator → Executor) converts source documents (PDF/DOCX/URL/Markdown) into natively editable PPTX with real PowerPoint shapes (DrawingML).
 
-**Core Pipeline**: `Source Document → Create Project → Template Option → Strategist Eight Confirmations → [Image_Generator] → Executor → Post-processing → Export PPTX`
+**Core Pipeline**: `Source Document → Create Project → Template Option → Strategist Eight Confirmations → [Image_Generator] → Executor → Quality Check → Chart Calibration → Post-processing → Export PPTX`
 
 ## Execution Requirements
 
@@ -21,13 +21,13 @@ PPT Master is an AI-driven presentation generation system. Through multi-role co
 
 ## Compatibility Boundary
 
-- This repository is a workflow/skill package, not a conventional app or service scaffold.
-- Do NOT assume repository-local conventions such as `.worktrees/`, `tests/`, or mandatory branch setup unless the user explicitly requests them.
-- If a generic coding skill conflicts with this repository's instructions, prioritize [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md) and this file for work inside this repository.
+- This repository is a workflow/skill package, not an app or service scaffold.
+- Do NOT assume conventions like `.worktrees/`, `tests/`, or mandatory branch setup unless the user explicitly requests them.
+- On conflict with a generic coding skill, prioritize [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md) and this file inside this repository.
 
 ## Command Quick Reference
 
-These commands are a convenience summary only. The full step-by-step workflow remains in [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md).
+Convenience summary only — full workflow in [`skills/ppt-master/SKILL.md`](skills/ppt-master/SKILL.md).
 
 ```bash
 # Source content conversion
@@ -45,6 +45,14 @@ python3 skills/ppt-master/scripts/project_manager.py validate <project_path>
 python3 skills/ppt-master/scripts/analyze_images.py <project_path>/images
 python3 skills/ppt-master/scripts/image_gen.py "prompt" --aspect_ratio 16:9 --image_size 1K -o <project_path>/images
 python3 skills/ppt-master/scripts/svg_quality_checker.py <project_path>
+
+# Chart coordinate calibration (MANDATORY after quality check, before notes)
+# Step 1: find pages with charts
+grep -l "chart-plot-area" <project_path>/svg_output/*.svg
+# Step 2: run calculator per chart type and update SVG coordinates
+python3 skills/ppt-master/scripts/svg_position_calculator.py calc bar --data "L1:V1,L2:V2" --area "x_min,y_min,x_max,y_max" --bar-width 120
+python3 skills/ppt-master/scripts/svg_position_calculator.py calc pie --data "A:35,B:25" --center "cx,cy" --radius 200
+python3 skills/ppt-master/scripts/svg_position_calculator.py calc line --data "x1:y1,x2:y2" --area "x_min,y_min,x_max,y_max" --y-range "0,max"
 
 # Post-processing pipeline: run sequentially, one command at a time
 python3 skills/ppt-master/scripts/total_md_split.py <project_path>
