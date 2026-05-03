@@ -1,6 +1,6 @@
 # Image Tools
 
-Image tools cover prompt-based generation, image inspection, and Gemini watermark removal.
+Image tools cover prompt-based AI generation, web image search, image inspection, and Gemini watermark removal.
 
 ## `image_gen.py`
 
@@ -36,18 +36,18 @@ The active backend must always be selected explicitly via `IMAGE_BACKEND`.
 Example `.env`:
 
 ```env
-IMAGE_BACKEND=gemini
-GEMINI_API_KEY=your-api-key
-GEMINI_BASE_URL=https://your-proxy-url.com/v1beta
-GEMINI_MODEL=gemini-3.1-flash-image-preview
+IMAGE_BACKEND=openai
+OPENAI_API_KEY=sk-xxx
+OPENAI_MODEL=gpt-image-2
+# OPENAI_BASE_URL=http://127.0.0.1:3000/v1   # optional proxy
 ```
 
 Example process environment:
 
 ```bash
-export IMAGE_BACKEND=gemini
-export GEMINI_API_KEY=your-api-key
-export GEMINI_MODEL=gemini-3.1-flash-image-preview
+export IMAGE_BACKEND=openai
+export OPENAI_API_KEY=sk-xxx
+export OPENAI_MODEL=gpt-image-2
 ```
 
 Current process environment wins over `.env`.
@@ -83,6 +83,64 @@ python3 scripts/analyze_images.py <project_path>/images
 ```
 
 Use this instead of opening image files directly when following the project workflow.
+
+## `image_search.py`
+
+Zero-config web image search across openly-licensed providers. Sister tool to `image_gen.py` — used when the resource list row has `Acquire Via: web`.
+
+```bash
+python3 scripts/image_search.py "offshore wind farm" \
+  --filename cover_bg.jpg --slide 01_cover \
+  --orientation landscape -o projects/demo/images
+```
+
+Providers (Openverse and Wikimedia work with no key; configure Pexels / Pixabay for better stock-photo quality):
+
+| Provider | Config | Strength |
+|---|---|---|
+| `openverse` | zero-config | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
+| `wikimedia` | zero-config | educational, scientific, geographic, historical |
+| `pexels` | recommended: `PEXELS_API_KEY` | modern stock photography, people, workplace, lifestyle |
+| `pixabay` | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations |
+
+Default search chain (when `--provider` is unset): zero-config providers first, then keyed providers whose API key is set in the environment. Keyed providers without a key are silently skipped. For polished visual decks, configure at least one keyed provider.
+
+Query guidance:
+
+| Case | Pattern |
+|---|---|
+| Generic stock concept | `boardroom meeting, professional editorial photography, natural light` |
+| China-specific landmark | Official Chinese place name + concrete scene |
+| Avoid | Negative prompt wording such as `not tourist snapshot` |
+
+License filter:
+
+- **Default**: search all providers with `cc0,pdm,pexels,pixabay,cc by,cc by-sa` allowed together. The chosen image may be `no-attribution` or `attribution-required`; Executor adds an inline credit only when needed.
+- `--strict-no-attribution` restricts the search to `cc0,pdm,pexels,pixabay` — useful for full-bleed hero images or templates that cannot host a credit element.
+
+Pin a provider, refuse attribution, or override the manifest path:
+
+```bash
+# Pin Wikimedia
+python3 scripts/image_search.py "Olympics opening ceremony" \
+  --filename event.jpg --provider wikimedia \
+  --orientation landscape -o projects/demo/images
+
+# Strict mode — refuse CC BY / CC BY-SA
+python3 scripts/image_search.py "abstract gradient" \
+  --filename hero.jpg --strict-no-attribution \
+  -o projects/demo/images
+```
+
+Output:
+
+- Image saved to the specified output directory (auto-converts webp → jpg via Pillow when the filename extension demands)
+- `image_sources.json` manifest with full provenance (provider, license, license_tier, author, source URL, dimensions, attribution_text)
+- Manifest is idempotent on `filename` — rerunning replaces that entry only
+
+Allowed licenses (default): CC0, Public Domain, Pexels License, Pixabay Content License, CC BY, CC BY-SA. Auto-rejected: CC BY-NC, CC BY-ND, CC BY-NC-SA, CC BY-NC-ND, all rights reserved, unknown.
+
+The full role-level reference (intent → query translation, on-slide attribution visual specification) is in [`references/image-searcher.md`](../../references/image-searcher.md).
 
 ## `gemini_watermark_remover.py`
 

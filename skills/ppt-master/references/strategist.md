@@ -185,11 +185,14 @@ Baseline choice follows **content density**, not style. Common: `18px` (dense) /
 | **A** | No images | Data reports, process documentation |
 | **B** | User-provided | Has existing image assets |
 | **C** | AI-generated | Custom illustrations, backgrounds needed |
-| **D** | Placeholders | Images to be added later |
+| **D** | Web-sourced | Real-world reference imagery, editorial support, stock-style needs (no API key required for default providers) |
+| **E** | Placeholders | Images to be added later |
+
+Selections may be mixed at the row level — e.g. a deck can use C for hero illustrations while sourcing D for supporting team photos.
 
 **When selection includes B**, you must run `python3 scripts/analyze_images.py <project_path>/images` before outputting the spec, and integrate scan results into the image resource list.
 
-**When B/C/D is selected**, add an image resource list to the spec:
+**When B / C / D / E is selected**, add an image resource list to the spec:
 
 | Column | Description |
 |--------|-------------|
@@ -199,16 +202,41 @@ Baseline choice follows **content density**, not style. Common: `18px` (dense) /
 | Layout suggestion | e.g., `Wide landscape (suitable for full-screen/illustration)` |
 | Purpose | e.g., `Cover background` |
 | Type | Background / Photography / Illustration / Diagram / Decorative pattern |
+| **Acquire Via** | `ai` / `web` / `user` / `placeholder` — drives Step 5 dispatch |
 | Status | Initial status must be `Pending`, `Existing`, or `Placeholder`; see [`svg-image-embedding.md`](svg-image-embedding.md) for the full status enum |
-| Generation description | Fill in detailed description for AI generation |
+| **Reference** | Free-form **intent description** (NOT a search query); feeds Image_Generator (ai) or Image_Searcher (web) |
 
-**Generation description quality** — feeds Image_Generator's prompt; specify subject, count, setting, lighting, colors (HEX), composition. Avoid one-word descriptions like "team photo" / "tech background" / "chart".
+**Reference field**: Write visual intent, not provider mechanics.
 
-| Good examples |
-|---------------|
-| "Professional team of 4 diverse people collaborating at a modern office desk, natural lighting, laptop visible" |
-| "Abstract flowing digital waves in deep navy (#1E3A5F) to midnight blue gradient, subtle particle effects, clean center area for text overlay" |
-| "Clean flowchart showing 4 sequential steps connected by arrows, flat design, light gray background, blue accent nodes" |
+| ✅ Intent description | ❌ Avoid |
+|---|---|
+| "Diverse engineering team collaborating around a laptop, modern office, natural light" | "team laptop office" |
+| "Abstract flowing digital waves in deep navy (#1E3A5F) to midnight blue gradient, subtle particle effects, clean center area for text overlay" | "use openverse, search 'office'" |
+| "Sunlit forest path in autumn" | "team photo" |
+
+**Per-row Reference grammar**:
+
+| Acquire Via | Reference pattern |
+|---|---|
+| `ai` | Subject + style + colors (HEX) + composition |
+| `web` | Concrete subject/place/object first, then 1-3 quality descriptors |
+
+**Allowed web quality descriptors**:
+
+| Descriptor | Use |
+|---|---|
+| `professional editorial photography` | Stock-style photography |
+| `clean composition` | Covers, section dividers, image-text layouts |
+| `natural light` | People, workplace, travel, lifestyle scenes |
+| `high-resolution` | Large visual areas |
+
+**Forbidden — web negative prompts**: `not tourist snapshot`, `no phone photo`, `avoid amateur style`.
+
+| Mode | Good Reference |
+|---|---|
+| `web` | "Diverse team collaborating at a modern office desk, professional editorial photography, natural light, laptop visible" |
+| `ai` | "Abstract flowing digital waves in deep navy (#1E3A5F) to midnight blue gradient, subtle particle effects, clean center area for text overlay" |
+| `ai` | "Clean flowchart showing 4 sequential steps connected by arrows, flat design, light gray background, blue accent nodes" |
 
 **Image type descriptions**:
 

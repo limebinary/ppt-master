@@ -30,9 +30,15 @@ PPT Master works with any AI coding agent that can read files and run shell comm
 
 Yes. PPT Master includes a built-in image generation script that supports multiple providers (Gemini, OpenAI, FLUX, Qwen, Zhipu, etc.). During the Strategist phase, if you choose "AI generation" for the image approach, the pipeline will automatically generate images based on your content. You can also provide your own images — just place them in the project's `images/` folder.
 
+## Q: I don't have an image-generation API key — can I still get images?
+
+Yes — pick "Web-sourced" in the Strategist's Image Usage step. PPT Master ships a zero-config `image_search.py` that searches openly-licensed images across Openverse and Wikimedia Commons (no API key needed). Zero-config search is a fallback: it works immediately, but quality can be uneven because many results are ordinary user uploads.
+
+For better contemporary stock photography, set `PEXELS_API_KEY` and/or `PIXABAY_API_KEY` in `.env` (both are free). The search will include Pexels / Pixabay automatically, which usually improves people, workplace, lifestyle, product, and illustration images. You can mix paths in one deck (e.g. AI for hero illustrations, web for team photos). If a selected image requires attribution, Executor adds a small inline credit on the affected slide.
+
 ## Q: Can I edit the generated presentations?
 
-Yes! Both files are saved to `exports/` with a timestamp. The native `.pptx` produces **native PowerPoint shapes** — all text, graphics, and colors are directly editable without any conversion. The `_svg.pptx` is an SVG snapshot kept as a visual reference backup. Requires **Office 2016** or later.
+Yes. The main `.pptx` (native PowerPoint shapes — all text, graphics, and colors directly editable without any conversion) is saved to `exports/` with a timestamp. The SVG snapshot `_svg.pptx` plus a copy of `svg_output/` (the Executor's raw SVG source) are archived to `backup/<timestamp>/`, so you can revisit the visual reference or rebuild the pptx via `finalize_svg → svg_to_pptx` without re-running the LLM. `backup/<timestamp>/` directories can be deleted manually when no longer needed. Requires **Office 2016** or later.
 
 ## Q: What's the difference between the three Executors?
 
@@ -53,6 +59,20 @@ For comparison, Gamma subscriptions run $8–20/month, Beautiful.ai $12–45/mon
 Charts are rendered as **custom-designed SVG graphics** converted to native PowerPoint shapes — fully editable as shapes (move, recolor, retype, restyle). This is a deliberate choice over Excel-driven chart objects: PowerPoint's default charts look generic and dated, and lock decks into rigid templates. SVG charts give you publication-quality visuals you can fine-tune directly in PowerPoint.
 
 If your workflow specifically requires Excel-driven data editing, manually create a similar chart yourself in PowerPoint after export.
+
+## Q: Can I change page transitions and element animations?
+
+Yes. Page transitions (`fade` 0.4s by default) and per-element entrance animations (`mixed` effect with `after-previous` cascade by default) are both controlled by `svg_to_pptx.py` flags — `-t/--transition` for page-level and `-a/--animation` for element-level. Common one-liners:
+
+```bash
+python3 skills/ppt-master/scripts/svg_to_pptx.py <project> -t push       # different transition
+python3 skills/ppt-master/scripts/svg_to_pptx.py <project> -t none       # disable transitions
+python3 skills/ppt-master/scripts/svg_to_pptx.py <project> -a none       # disable per-element animation
+python3 skills/ppt-master/scripts/svg_to_pptx.py <project> --animation fade        # use a single effect instead of mixed
+python3 skills/ppt-master/scripts/svg_to_pptx.py <project> --animation-trigger on-click   # presenter-paced reveals
+```
+
+Full effect list, anchor logic (top-level `<g id="...">`), fallback behavior, and limitations: see [Animations & Transitions](../skills/ppt-master/references/animations.md).
 
 ## Q: Which AI model works best?
 

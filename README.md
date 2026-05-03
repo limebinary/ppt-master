@@ -1,11 +1,22 @@
 # PPT Master — AI generates natively editable PPTX from any document
 
-[![Version](https://img.shields.io/badge/version-v2.3.0-blue.svg)](https://github.com/hugohe3/ppt-master/releases)
+[![Version](https://img.shields.io/badge/version-v2.5.0-blue.svg)](https://github.com/hugohe3/ppt-master/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/hugohe3/ppt-master.svg)](https://github.com/hugohe3/ppt-master/stargazers)
 [![AtomGit stars](https://atomgit.com/hugohe3/ppt-master/star/badge.svg)](https://atomgit.com/hugohe3/ppt-master)
 
 English | [中文](./README_CN.md)
+
+<p align="center">
+  <sub>This project is kept free and open source with the support of <a href="https://www.packyapi.com/register?aff=ppt-master">PackyCode</a> and other sponsors.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="180"><a href="https://www.packyapi.com/register?aff=ppt-master"><img src="docs/assets/sponsors/packycode.png" alt="PackyCode" width="150"></a></td>
+    <td>Thanks to PackyCode for sponsoring this project! PackyCode is a reliable and efficient API relay service provider, offering relay services for Claude Code, Codex, Gemini, and more. PackyCode provides special discounts for our project users: register using <a href="https://www.packyapi.com/register?aff=ppt-master">this link</a> and enter the promo code <strong>ppt-master</strong> during recharge to get 10% off.</td>
+  </tr>
+</table>
 
 <p align="center">
   <a href="https://hugohe3.github.io/ppt-master/"><strong>Live Demo</strong></a> ·
@@ -26,6 +37,12 @@ English | [中文](./README_CN.md)
 ---
 
 Drop in a PDF, DOCX, URL, or Markdown — get back a **natively editable PowerPoint** with real shapes, real text boxes, and real charts. Not images. Click anything and edit it.
+
+> **Animations** — exported decks support **page transitions** and **per-element entrance animations** as real OOXML, not embedded video. By default, elements cascade in automatically on slide entry — no clicking needed. Plays natively in PowerPoint and Keynote, no extra tooling. See [Animations & Transitions →](./skills/ppt-master/references/animations.md).
+
+> **Narration & Video** — generate per-slide voice narration from the speaker notes (`edge-tts` by default, optional cloud TTS providers for high-quality narration), embed the audio back into the PPTX, and let PowerPoint export the deck as an MP4 video — synced narration + transitions, no third-party tools. See [Audio Narration & Video Export →](./docs/audio-narration.md).
+>
+> **Voice Cloning** — bring your own cloned voice from ElevenLabs / MiniMax / Qwen / CosyVoice and have the entire deck narrated in *your* voice (or a presenter's, with permission). Clone once in the provider's console, then pass the `voice_id` — PPT Master reads every slide's notes in that voice and embeds the result back into the PPTX. See [Use a cloned voice →](./docs/audio-narration.md#use-a-cloned-voice).
 
 > **How it works** — PPT Master is a workflow (a "skill") that works inside AI IDEs like Claude Code, Cursor, VS Code + Copilot, or Codebuddy. You chat with the AI — "make a deck from this PDF" — and it follows the workflow to produce a real editable `.pptx` on your computer. No coding on your side; the IDE is just where the conversation happens.
 >
@@ -70,7 +87,7 @@ AI presentation tools roughly fall into four categories. PPT Master only does th
 
 ## Built by Hugo He
 
-I'm a finance professional (CPA · CPV · Consulting Engineer (Investment)) who reviews and edits hundreds of slides every week. I got tired of AI tools that output images instead of editable shapes — so I built this.
+I'm a finance professional (CPA · CPV · Consulting Engineer (Investment)) who regularly reviews and edits presentation decks. I wanted AI-generated slides to remain editable in PowerPoint, not flattened into images — so I built this.
 
 🌐 [Personal website](https://www.hehugo.com/) · 📧 [heyug3@gmail.com](mailto:heyug3@gmail.com) · 🐙 [@hugohe3](https://github.com/hugohe3)
 
@@ -145,6 +162,8 @@ PPT Master runs in **any tool with agent capability** — read/write files, exec
 
 > **Model recommendation**: [Claude](https://claude.ai/) Opus / Sonnet works best and is most tested. Other mainstream models (GPT, Gemini, Kimi, MiniMax, etc.) also work, but SVG absolute-coordinate layout precision varies.
 
+**🔑 Want to use Claude / GPT / Gemini but don't have access yet?** Project sponsor **[PackyCode](https://www.packyapi.com/register?aff=ppt-master)** can help — whether you lack an API key, can't connect directly, have no way to subscribe, or just don't want to pay a full monthly fee for occasional use, PackyCode lets you call Claude, GPT, Gemini and more on a pay-as-you-go basis, no subscription required. Enter promo code **`ppt-master`** when topping up for 10% off.
+
 ### 3. Set Up
 
 **Option A — Download ZIP** (no Git required): click **Code → Download ZIP** on the [GitHub page](https://github.com/hugohe3/ppt-master), then unzip.
@@ -190,27 +209,21 @@ AI:  Sure. Let's confirm the design spec:
 
 The AI handles everything — content analysis, visual design, SVG generation, and PPTX export.
 
-> **Output:** Two timestamped files are saved to `exports/` — a native-shapes `.pptx` (directly editable) and an `_svg.pptx` snapshot for visual reference. Requires Office 2016+.
+> **Output:** Main native-shapes `.pptx` (directly editable) saved to `exports/<name>_<timestamp>.pptx`. The SVG snapshot `_svg.pptx` and a copy of `svg_output/` are archived to `backup/<timestamp>/` for visual reference and pptx rebuild without re-running the LLM. Requires Office 2016+.
 
 > **AI lost context?** Ask it to read `skills/ppt-master/SKILL.md`.
 
 > **Something went wrong?** Check the **[FAQ](./docs/faq.md)** — it covers model selection, layout issues, export problems, and more. Continuously updated from real user reports.
 
-### 5. AI Image Generation (Optional)
+### 5. Image Acquisition (Optional)
 
-```bash
-cp .env.example .env    # then edit with your API key
-```
+Two paths for non-user images, mixable per row in the same deck:
 
-```env
-IMAGE_BACKEND=gemini                        # required — must be set explicitly
-GEMINI_API_KEY=your-api-key
-GEMINI_MODEL=gemini-3.1-flash-image-preview
-```
+**A) AI generation** — `image_gen.py`. Copy `.env.example` to `.env`, set `IMAGE_BACKEND` plus the provider's `*_API_KEY` (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.), and the pipeline calls it automatically. Run `python3 skills/ppt-master/scripts/image_gen.py --list-backends` for the full backend list. `gpt-image-2` is currently the best default.
 
-Multiple backends are supported across Core / Extended / Experimental tiers. Run `python3 skills/ppt-master/scripts/image_gen.py --list-backends` to see the full list. Environment variables override `.env`. Use provider-specific keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`, etc.) — global `IMAGE_API_KEY` is not supported.
+**B) Web image search** — `image_search.py`. **Zero-config works**, but configure `PEXELS_API_KEY` / `PIXABAY_API_KEY` (both free) for higher-quality results. Without keys, search uses Openverse / Wikimedia Commons only; this is useful as a fallback, but image quality can be uneven because many results are ordinary user uploads. With keys, the default provider chain also appends Pexels / Pixabay, which materially improves modern stock photography, people, workplace, lifestyle, and illustration coverage. The default is quality-first: CC0, Public Domain, Pexels / Pixabay no-attribution licenses, CC BY, and CC BY-SA are considered together, and Executor adds a small inline credit whenever the selected image requires attribution. Use `--strict-no-attribution` only when a slide cannot tolerate any credit line. For high-impact covers, product shots, portraits, and branded scenes, prefer this order: user-provided high-resolution assets / AI generation > web search with Pexels / Pixabay keys > zero-config web search.
 
-> **Tip:** For best quality, generate images in [Gemini](https://gemini.google.com/) and select **Download full size**. Remove the watermark with `scripts/gemini_watermark_remover.py`.
+> Full reference: [`image-generator.md`](./skills/ppt-master/references/image-generator.md) (AI) · [`image-searcher.md`](./skills/ppt-master/references/image-searcher.md) (web).
 
 ---
 
@@ -223,6 +236,8 @@ Multiple backends are supported across Core / Extended / Experimental tiers. Run
 | 📖 | [SKILL.md](./skills/ppt-master/SKILL.md) | Core workflow and rules |
 | 🎨 | [Create a Custom Template](./skills/ppt-master/workflows/create-template.md) | Standalone workflow for building your own brand or industry template |
 | 📐 | [Canvas Formats](./skills/ppt-master/references/canvas-formats.md) | PPT 16:9, Xiaohongshu, WeChat, and 10+ formats |
+| 🎬 | [Animations & Transitions](./skills/ppt-master/references/animations.md) | Page transitions and per-element entrance animations |
+| 🎙️ | [Audio Narration & Video Export](./docs/audio-narration.md) | TTS narration in 90+ locales, embed audio, export as MP4 |
 | 🛠️ | [Scripts & Tools](./skills/ppt-master/scripts/README.md) | All scripts and commands |
 | 💼 | [Examples](./examples/README.md) | 22 projects, 309 pages |
 | 🏗️ | [Technical Design](./docs/technical-design.md) | Architecture, design philosophy, why SVG |
@@ -270,12 +285,9 @@ PPT Master is currently built and maintained primarily by me. Every new template
 
 **Corporate sponsors**
 
-<table>
-  <tr>
-    <td width="220" align="center"><a href="https://m.do.co/c/547f129aabe1"><img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/PoweredByDO/DO_Powered_by_Badge_blue.svg" alt="Powered by DigitalOcean" width="180"></a></td>
-    <td>Cloud infrastructure support via the DigitalOcean Open Source Credits Program.</td>
-  </tr>
-</table>
+<a href="https://www.packyapi.com/register?aff=ppt-master"><img src="docs/assets/sponsors/packycode.png" alt="PackyCode" height="40" /></a>
+&nbsp;
+<a href="https://m.do.co/c/547f129aabe1"><img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/PoweredByDO/DO_Powered_by_Badge_blue.svg" alt="Powered by DigitalOcean" height="40" /></a>
 
 **Individual support**
 
