@@ -114,37 +114,52 @@ See [`../templates/icons/README.md`](../templates/icons/README.md) for the curre
 
 #### Font Combinations
 
-> Table below is a starting point, not a menu — adapt or propose new combinations as content tone calls for it. Per-role assignment (`title` / `body` / `emphasis` / `code`) is expected.
->
-> **⚠️ PPT-safe font discipline (HARD rule).** PPTX has no runtime fallback — missing fonts substitute to Calibri. Every stack MUST end with a pre-installed font:
-> - CJK-capable → `"Microsoft YaHei", sans-serif` or `SimSun, serif`
-> - Latin-only → `Arial, sans-serif` or `"Times New Roman", serif`
-> - Monospace → `Consolas, "Courier New", monospace`
->
-> Stacks leading with non-pre-installed fonts (Inter / HarmonyOS Sans / Google Fonts / brand typefaces like McKinsey Bower) are only acceptable when the Design Spec notes "requires install or PPTX embed". Never end a stack with a non-safe font.
+> Same-deck fonts must form **contrast** (different family, weight, or proportion) or **concord** (one family throughout). "Similar but not identical" pairings *across roles* are forbidden — see blacklist below. *Within one stack*, pairing a Windows font with a macOS counterpart (e.g. `Microsoft YaHei` + `PingFang SC`) is encouraged as a browser-preview nicety; converter writes only the first into PPTX.
 
-**Cross-platform pre-installed reference** (Windows + Mac out of the box):
+> **⚠️ PPT-safe font discipline (HARD rule).** PPTX has no runtime fallback — missing fonts substitute to Calibri. Every stack MUST end with a pre-installed font:
+> - CJK → `"Microsoft YaHei"` / `SimHei` / `SimSun` / `FangSong` / `KaiTi`
+> - Latin sans → `Arial` / `Calibri` / `Segoe UI` / `Verdana` / `Trebuchet MS`
+> - Latin serif → `"Times New Roman"` / `Georgia` / `Cambria` / `Palatino` / `Garamond`
+> - Mono → `Consolas` / `"Courier New"`
+> - Display → `Impact` / `"Arial Black"`
+>
+> Stacks led by non-pre-installed fonts (Inter / HarmonyOS Sans / Source Han / brand typefaces like McKinsey Bower) are only acceptable when the Design Spec notes "requires install or PPTX embed".
+
+**Forbidden — similar-but-not-identical pairings across roles** (do not split title vs body across these; within one stack as cross-platform fallback they remain encouraged):
+
+- `Microsoft YaHei` ↔ `PingFang SC` ↔ `Heiti SC`
+- `SimSun` ↔ `Songti SC` ↔ `STSong`
+- `Arial` ↔ `Helvetica Neue` ↔ `Segoe UI`
+- `"Times New Roman"` ↔ `Times`
+- `Georgia` ↔ `Cambria`
+
+**Mandatory**: propose **two** combinations to the user — one concord (safe), one contrast (with tension). Do not default to "title = body, same font" without explicit user request.
+
+**Cross-platform pre-installed reference**:
 
 | Category | Safe families |
 |----------|--------------|
 | CJK sans | Microsoft YaHei, SimHei, PingFang SC, Heiti SC |
-| CJK serif | SimSun, FangSong, KaiTi, Songti SC, STSong |
-| Latin sans | Arial, Calibri, Segoe UI, Verdana, Helvetica, Helvetica Neue |
-| Latin serif | Times New Roman, Georgia, Cambria, Times, Palatino |
-| Monospace | Consolas, Courier New, Menlo, Monaco |
+| CJK serif | SimSun, FangSong, KaiTi, Songti SC |
+| Latin sans | Arial, Calibri, Segoe UI, Verdana, Trebuchet MS, Helvetica Neue |
+| Latin serif | Times New Roman, Georgia, Cambria, Palatino, Garamond, Book Antiqua |
+| Mono | Consolas, Courier New |
 | Display | Impact, Arial Black |
 
-**Seed combinations** (all stacks are PPT-safe — end on pre-installed fonts):
+**Seed combinations** (all PPT-safe; first column names the contrast axis, not a scenario):
 
-| Direction | Typical scenarios | Title stack | Body stack | Code stack |
-|-----------|-------------------|-------------|------------|------------|
-| **Modern CJK sans** (default) | Tech launches, enterprise reports, most contemporary decks | `"Microsoft YaHei", "PingFang SC", sans-serif` | same as Title | — |
-| **Government / 政务** | Government reports, party-building, formal briefings | `SimHei, "Microsoft YaHei", sans-serif` | `SimSun, serif` | — |
-| **Academic serif** | Research, legal, theses, serious analysis | `Georgia, "Times New Roman", serif` | `"Times New Roman", SimSun, serif` | — |
-| **Editorial display** | Magazine covers, luxury, finance, brand storytelling | `Georgia, SimSun, serif` (Bold/Heavy) | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
-| **Tech / developer** | Code-focused tech talks, developer docs, API / CLI explainers | `Arial, sans-serif` | same as Title | `Consolas, "Courier New", monospace` |
-| **International English** | English-primary decks, international audiences | `"Helvetica Neue", Arial, sans-serif` | same as Title | — |
-| **Impact / 海报** | Cover headlines, call-to-action, poster-style slides | `Impact, "Arial Black", "Microsoft YaHei", sans-serif` | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
+| Contrast axis | Title stack | Body stack | Code stack |
+|---|---|---|---|
+| Serif × sans | `Georgia, KaiTi, serif` | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
+| Kai × hei | `KaiTi, Georgia, serif` | `"Microsoft YaHei", "PingFang SC", sans-serif` | — |
+| Fangsong × hei | `FangSong, "Times New Roman", serif` | `SimHei, "Microsoft YaHei", sans-serif` | — |
+| Double serif | `Palatino, FangSong, serif` | `Cambria, SimSun, serif` | — |
+| Same family, weight contrast (900 / 300) | `"Microsoft YaHei", "PingFang SC", sans-serif` | same | — |
+| Display × neutral | `Impact, "Arial Black", SimHei, sans-serif` | `Arial, "Microsoft YaHei", sans-serif` | — |
+| Cool serif (academic) | `Cambria, SimSun, serif` | `"Times New Roman", SimSun, serif` | — |
+| Hei × song (政务) | `SimHei, "Microsoft YaHei", sans-serif` | `SimSun, serif` | — |
+| Tech / developer | `Arial, "Microsoft YaHei", sans-serif` | same | `Consolas, "Courier New", monospace` |
+| Concord (default fallback) | `"Microsoft YaHei", "PingFang SC", sans-serif` | same | — |
 
 > **Stack length discipline (soft rule).** ≤4 fonts per stack. Lead with Windows-preinstalled fonts (Microsoft YaHei / SimSun / Arial / Georgia / Consolas); keep at most **one** macOS-exclusive family (typically `"PingFang SC"`). Converter only picks the first Latin and first CJK font ([`drawingml_utils.py parse_font_family`](../scripts/svg_to_pptx/drawingml_utils.py)); macOS→Windows fallback is auto-mapped via `FONT_FALLBACK_WIN`.
 
@@ -188,6 +203,16 @@ Baseline choice follows **content density**, not style. Common: `18px` (dense) /
 | **D** | Web-sourced | Real-world reference imagery, editorial support, stock-style needs (no API key required for default providers) |
 | **E** | Placeholders | Images to be added later |
 
+**When recommending C** — surface its three implementation modes so the user knows "no API key" is a supported state:
+
+| Mode | Trigger | Mechanism |
+|---|---|---|
+| **Path A** | `IMAGE_BACKEND` configured (default) | `image_gen.py` runs in Step 5 |
+| **Path B** | User explicitly names host's image tool (Codex / Antigravity) | Host-native generation |
+| **Offline Manual** | Path A unavailable AND Path B not in use | Prompts written to `images/image_prompts.md`; user generates externally and places files in `project/images/` |
+
+Selection is automatic in Step 5 (A → B → Manual). Detailed contract: [`image-generator.md`](./image-generator.md) §3.2.
+
 Selections may be mixed at the row level — e.g. a deck can use C for hero illustrations while sourcing D for supporting team photos.
 
 **When selection includes B**, you must run `python3 scripts/analyze_images.py <project_path>/images` before outputting the spec, and integrate scan results into the image resource list.
@@ -205,6 +230,8 @@ Selections may be mixed at the row level — e.g. a deck can use C for hero illu
 | **Acquire Via** | `ai` / `web` / `user` / `placeholder` — drives Step 5 dispatch |
 | Status | Initial status must be `Pending`, `Existing`, or `Placeholder`; see [`svg-image-embedding.md`](svg-image-embedding.md) for the full status enum |
 | **Reference** | Free-form **intent description** (NOT a search query); feeds Image_Generator (ai) or Image_Searcher (web) |
+
+**No-crop flag (exception only)**: most images are croppable — Executor defaults to `preserveAspectRatio="xMidYMid slice"`. When an image must NOT lose pixels (data screenshots, charts, certificates, contracts, dense diagrams), append `no-crop` to its `spec_lock.md images` entry. Executor will then size the container to the native ratio and use `meet`. Don't tag the rest.
 
 **Reference field**: Write visual intent, not provider mechanics.
 

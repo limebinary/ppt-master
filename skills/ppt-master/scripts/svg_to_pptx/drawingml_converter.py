@@ -260,6 +260,28 @@ def convert_svg_to_slide_shapes(
     tree = ET.parse(str(svg_path))
     root = tree.getroot()
 
+    # Expand <use data-icon="..."/> placeholders in-memory so this dispatcher
+    # can consume svg_output/ directly. Standard renderers and this converter
+    # both ignore data-icon, so without expansion icons would silently drop.
+    # The on-disk finalize_svg pipeline does the same expansion for svg_final/;
+    # running this here makes the two pipelines behaviourally aligned.
+    icons_dir = Path(__file__).resolve().parent.parent.parent / 'templates' / 'icons'
+    if icons_dir.exists():
+        from .use_expander import expand_use_data_icons
+        expanded = expand_use_data_icons(root, icons_dir)
+        if verbose and expanded:
+            print(f'  Expanded {expanded} <use data-icon="..."/> placeholder(s)')
+
+    # Flatten positional <tspan> (those with x/y/non-zero dy) into independent
+    # <text> elements. DrawingML runs cannot reposition mid-paragraph, so a
+    # dy-stacked block of tspans would otherwise collapse onto one baseline,
+    # and an x-anchored tspan would render in the wrong column. finalize_svg
+    # does the same flattening on disk; doing it here keeps native pptx output
+    # correct when reading raw svg_output/.
+    from .tspan_flattener import flatten_positional_tspans
+    if flatten_positional_tspans(tree) and verbose:
+        print('  Flattened positional <tspan> into independent <text>')
+
     defs = collect_defs(root)
     ctx = ConvertContext(defs=defs, slide_num=slide_num, svg_dir=Path(svg_path).parent)
 

@@ -1,5 +1,7 @@
 # Image Tools
 
+> Architecture rationale (why provider-specific config keys instead of a generic `IMAGE_API_KEY`, why permissive license filter with strict-mode escape hatch, why external refs in dev but two divergent embedding strategies for delivery): see [docs/technical-design.md "Image Acquisition & Embedding"](../../../../docs/technical-design.md#image-acquisition--embedding).
+
 Image tools cover prompt-based AI generation, web image search, image inspection, and Gemini watermark removal.
 
 ## `image_gen.py`
@@ -29,7 +31,10 @@ python3 scripts/image_gen.py "A product KV in cinematic style" --backend volceng
 Configuration sources:
 
 1. Current process environment variables
-2. Repo-root `.env` as a fallback
+2. First `.env` found in this order:
+   - Current working directory
+   - Clone repo root
+   - `~/.ppt-master/.env`
 
 The active backend must always be selected explicitly via `IMAGE_BACKEND`.
 
@@ -52,7 +57,7 @@ export OPENAI_MODEL=gpt-image-2
 
 Current process environment wins over `.env`.
 
-Use provider-specific keys only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `.env.example` for the full list per backend.
+Use provider-specific keys only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `.env.example` in clone mode or `${SKILL_DIR}/.env.example` in skill-install mode for the full list per backend.
 
 `IMAGE_API_KEY`, `IMAGE_MODEL`, and `IMAGE_BASE_URL` are intentionally unsupported.
 
@@ -104,6 +109,8 @@ Providers (Openverse and Wikimedia work with no key; configure Pexels / Pixabay 
 | `pixabay` | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations |
 
 Default search chain (when `--provider` is unset): zero-config providers first, then keyed providers whose API key is set in the environment. Keyed providers without a key are silently skipped. For polished visual decks, configure at least one keyed provider.
+
+`image_search.py` uses the same `.env` lookup order as `image_gen.py`, so skill installs can keep `PEXELS_API_KEY` / `PIXABAY_API_KEY` in `~/.ppt-master/.env`.
 
 Query guidance:
 
