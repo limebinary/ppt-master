@@ -3,11 +3,17 @@
 
 Reads OOXML directly via `pptx_to_svg` and writes a reusable reference workspace:
 
-- `manifest.json` — slide size, theme colors, fonts, asset inventory
-- `master_layout_refs.json` / `master_layout_analysis.md` — master/layout structure
-- `analysis.md` — page-type guidance
+- `manifest.json` — single source of truth for slide size, theme colors, fonts,
+  asset inventory, and per-slide / per-layout / per-master metadata
+- `summary.md` — short human-readable digest derived from manifest.json
 - `assets/` — extracted reusable image assets
-- `svg/` — shape-level SVG per slide (real <text>, <image>, geometry)
+- `svg/` — primary view: by default the layered template view (every master
+  and layout in the deck rendered once each as `master_*.svg` /
+  `layout_*.svg`, slides contain only their own shapes, and an
+  `inheritance.json` describes the reuse graph)
+- `svg-flat/` — companion view (default mode "both"): each `slide_NN.svg`
+  is self-contained — master/layout decoration is inlined — so opening any
+  one slide shows the full page like PowerPoint would
 """
 
 from __future__ import annotations
@@ -20,6 +26,7 @@ from template_import.manifest import build_manifest
 
 
 def parse_args() -> argparse.Namespace:
+    """Build the CLI argument parser for the import entry point."""
     parser = argparse.ArgumentParser(
         description="Prepare a PPTX reference workspace for /create-template."
     )
@@ -37,17 +44,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--manifest-only",
         action="store_true",
-        help="Only extract manifest.json, analysis.md, and reusable assets without exporting slides to SVG",
+        help=(
+            "Only extract manifest.json + summary.md + reusable assets, "
+            "without exporting slides to SVG"
+        ),
     )
     parser.add_argument(
         "--embed-images",
         action="store_true",
         help="Inline images as data: URIs instead of writing files to assets/",
     )
+    parser.add_argument(
+        "--inheritance-mode",
+        choices=("both", "layered", "flat"),
+        default="both",
+        help=(
+            "How to render master/layout shapes for slide SVGs. "
+            "'both' (default): emit both views — svg/ holds the layered "
+            "renderings (template designers see master/layout/slide as "
+            "separate files plus svg/inheritance.json) and svg-flat/ holds "
+            "self-contained per-slide SVGs (each one renders correctly when "
+            "opened on its own). 'layered': only the svg/ tree, useful when "
+            "you don't need the flat view. 'flat': only self-contained slide "
+            "SVGs in svg/, the round-trip view used by svg_to_pptx."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
+    """CLI entry point: write the PPTX reference workspace to disk."""
     args = parse_args()
     pptx_path = Path(args.pptx_file).expanduser().resolve()
     if not pptx_path.exists():
@@ -68,14 +94,15 @@ def main() -> int:
         print("Error: --skip-manifest and --manifest-only cannot be used together")
         return 1
 
+    manifest = None
+    manifest_path = output_dir / "manifest.json"
     if not args.skip_manifest:
         try:
             manifest = build_manifest(pptx_path, output_dir)
-        except Exception as exc:
+        except (RuntimeError, OSError, ValueError) as exc:
             print(f"Error: failed to extract PPTX metadata: {exc}")
             return 1
 
-        manifest_path = output_dir / "manifest.json"
         manifest_path.write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -84,11 +111,14 @@ def main() -> int:
     if args.manifest_only:
         print(f"Imported PPTX template source: {pptx_path.name}")
         print(f"Output directory: {output_dir}")
-        if not args.skip_manifest:
+        if manifest is not None:
             print(f"Manifest: {manifest_path.name}")
+            print("Summary: summary.md")
             print(f"Assets exported: {len(manifest['assets']['allAssets'])}")
             print(f"Common assets: {len(manifest['assets']['commonAssets'])}")
             print(f"Slides analyzed: {len(manifest['slides'])}")
+            print(f"Layouts (unique): {len(manifest.get('layouts', []))}")
+            print(f"Masters (unique): {len(manifest.get('masters', []))}")
         return 0
 
     from pptx_to_svg import convert_pptx_to_svg
@@ -98,12 +128,20 @@ def main() -> int:
         media_subdir="assets",
         embed_images=args.embed_images,
         keep_hidden=False,
+        inheritance_mode=args.inheritance_mode,
     )
     result = convert_pptx_to_svg(pptx_path, output_dir, options)
     total_bytes = sum(len(art.svg.encode("utf-8")) for art in result.slides)
 
+    print(f"Inheritance mode: {args.inheritance_mode}")
     print(f"Exported SVG slides: {len(result.slides)}")
-    print(f"SVG bytes: {total_bytes}")
+    if args.inheritance_mode in {"layered", "both"}:
+        print(f"Exported masters: {len(result.masters)}")
+        print(f"Exported layouts: {len(result.layouts)}")
+        print("Inheritance graph: svg/inheritance.json")
+    if result.flat_slides:
+        print(f"Flat companion slides: {len(result.flat_slides)} (svg-flat/)")
+    print(f"SVG bytes (primary): {total_bytes}")
     print(f"Output directory: {output_dir}")
     return 0
 

@@ -38,6 +38,7 @@ from .shape_walker import (
     CONNECTOR, GRAPHIC, GROUP, PICTURE, SHAPE,
     ShapeNode, get_background, walk_sp_tree,
 )
+from .tbl_to_svg import convert_tbl
 from .txbody_to_svg import (
     TextResult,
     convert_txbody,
@@ -88,8 +89,19 @@ def assemble_slide(
     media_subdir: str = "assets",
     embed_images: bool = False,
     keep_hidden: bool = False,
+    inheritance_mode: str = "flat",
 ) -> tuple[str, dict[str, bytes]]:
-    """Convert one slide to a complete SVG string + media files map."""
+    """Convert one slide to a complete SVG string + media files map.
+
+    inheritance_mode controls how master/layout shapes are rendered:
+        - "flat" (default): emit master + layout non-placeholder shapes inline
+          inside the slide SVG. This is the historical behavior, used for
+          round-trip fidelity with svg_to_pptx.
+        - "layered": skip inherited shapes entirely. The slide SVG contains
+          only its own shapes. Callers (e.g. /create-template's PPTX import)
+          render master/layout once each as separate SVGs and record the
+          inheritance graph in inheritance.json.
+    """
     ctx = AssemblyContext(
         palette=palette,
         pkg=pkg,
@@ -108,18 +120,119 @@ def assemble_slide(
     if bg_xml:
         body_parts.append(bg_xml)
 
-    # Inherited layout/master shapes render behind slide-local shapes. Skip
-    # placeholders; they define editable regions, not visible background.
-    body_parts.extend(_emit_inherited_shapes(slide, ctx))
+    if inheritance_mode == "flat":
+        # Inherited layout/master shapes render behind slide-local shapes. Skip
+        # placeholders; they define editable regions, not visible background.
+        body_parts.extend(_emit_inherited_shapes(slide, ctx))
+    elif inheritance_mode != "layered":
+        raise ValueError(
+            f"inheritance_mode must be 'flat' or 'layered', got {inheritance_mode!r}"
+        )
 
-    # Walk shapes
-    nodes = walk_sp_tree(slide.part.xml)
+    # Walk shapes — placeholders without their own xfrm inherit geometry from
+    # layout, then master.
+    nodes = walk_sp_tree(
+        slide.part.xml,
+        layout_xml=slide.layout.xml if slide.layout else None,
+        master_xml=slide.master.xml if slide.master else None,
+    )
     for node in nodes:
         chunk = _convert_node(node, ctx, top_level=True)
         if chunk:
             body_parts.append(chunk)
 
     # Compose final SVG
+    defs_xml = "".join(ctx.defs) if ctx.defs else ""
+    defs_block = f"<defs>{defs_xml}</defs>" if defs_xml else ""
+
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" '
+        f'xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" '
+        f'width="{fmt_num(canvas_w)}" height="{fmt_num(canvas_h)}" '
+        f'viewBox="0 0 {fmt_num(canvas_w)} {fmt_num(canvas_h)}">'
+        f"{defs_block}"
+        + "\n".join(body_parts)
+        + "</svg>"
+    )
+    return svg, ctx.media
+
+
+def assemble_part_solo(
+    pkg: OoxmlPackage,
+    part: PartRef,
+    palette: ColorPalette | None,
+    *,
+    role: str,
+    parent_master: PartRef | None = None,
+    theme_fonts: dict[str, str] | None = None,
+    media_subdir: str = "assets",
+    embed_images: bool = False,
+    keep_hidden: bool = False,
+) -> tuple[str, dict[str, bytes]]:
+    """Render a single slideMaster or slideLayout part as a standalone SVG.
+
+    Used by the layered export path. Skips placeholders the same way
+    `_emit_inherited_shapes` does, so the output represents the part's
+    decorative / structural shapes only — what the part *contributes* to its
+    descendants. The first ancestor's background (if any) is emitted as the
+    first body element so the output reads like a real slide.
+
+    Args:
+        role: 'master' or 'layout'. Used as the group_id_prefix to keep ids
+            unique when the workspace inlines multiple parts in a viewer.
+        parent_master: when ``role == "layout"``, pass the parent slide
+            master so theme-style background fills (``<p:bgRef idx=...>``)
+            can resolve via the theme attached to that master. For
+            ``role == "master"`` the master is its own parent and this
+            argument is ignored.
+    """
+    if role not in {"master", "layout"}:
+        raise ValueError(f"role must be 'master' or 'layout', got {role!r}")
+
+    ctx = AssemblyContext(
+        palette=palette,
+        pkg=pkg,
+        slide_part=part,
+        theme_fonts=theme_fonts or {},
+        media_subdir=media_subdir,
+        embed_images=embed_images,
+        keep_hidden=keep_hidden,
+        group_id_prefix=f"{role}-",
+    )
+
+    canvas_w, canvas_h = pkg.slide_size_px
+
+    body_parts: list[str] = []
+
+    # Layered semantics: each part's standalone SVG must contain only that
+    # part's own contribution. The master gets its own bg, the layout gets
+    # its own bg only if it overrides the master's, and consumers re-stack
+    # the layers when they need a flat view. We therefore inspect <p:bg> on
+    # this part alone — never inherited from above. Theme-style fills
+    # (<p:bgRef idx=...>) still need the parent master's <a:fmtScheme> to
+    # resolve, hence the SlideRef.master plumbing below.
+    if role == "master":
+        master_for_theme: PartRef | None = part
+    else:
+        master_for_theme = parent_master
+    fake_slide = SlideRef(
+        index=0,
+        part=part,
+        layout=None,
+        master=master_for_theme,
+    )
+    bg_xml = _emit_part_background(fake_slide, ctx, canvas_w, canvas_h)
+    if bg_xml:
+        body_parts.append(bg_xml)
+
+    # Walk shapes, skipping placeholders (consistent with _emit_inherited_shapes).
+    for node in walk_sp_tree(part.xml):
+        if _is_placeholder_node(node):
+            continue
+        chunk = _convert_node(node, ctx, top_level=True)
+        if chunk:
+            body_parts.append(chunk)
+
     defs_xml = "".join(ctx.defs) if ctx.defs else ""
     defs_block = f"<defs>{defs_xml}</defs>" if defs_xml else ""
 
@@ -375,10 +488,30 @@ def _convert_group(node: ShapeNode, ctx: AssemblyContext, *, top_level: bool) ->
 
 def _convert_graphic_fallback(node: ShapeNode, ctx: AssemblyContext,
                               *, top_level: bool) -> str:
-    """v1 fallback: render the bounding box with a dashed outline + label."""
-    # Detect what's inside (chart / table / smartArt) for the comment.
+    """Render a <p:graphicFrame> by dispatching on its graphicData uri.
+
+    Currently:
+    - ``...drawingml/2006/table`` → real table renderer (`convert_tbl`)
+    - ``...presentationml/2006/ole`` → render the ``mc:Fallback`` preview
+      bitmap that PowerPoint bakes alongside every embedded OLE object.
+      Visually identical to what PowerPoint shows for an unedited embed.
+    - everything else (chart / SmartArt / diagram) → labelled bounding
+      rectangle so the slide composition is preserved even though the inner
+      content can't be drawn yet.
+    """
     graphic_data = node.xml.find("a:graphic/a:graphicData", NS)
     uri = graphic_data.attrib.get("uri", "graphicFrame") if graphic_data is not None else "graphicFrame"
+
+    if uri == "http://schemas.openxmlformats.org/drawingml/2006/table":
+        rendered = _render_graphic_table(node, ctx, graphic_data)
+        if rendered:
+            return _wrap_shape_group(rendered, node, ctx, top_level=top_level)
+
+    if uri == "http://schemas.openxmlformats.org/presentationml/2006/ole":
+        rendered = _render_ole_preview(node, ctx)
+        if rendered:
+            return _wrap_shape_group(rendered, node, ctx, top_level=top_level)
+
     label = uri.rsplit("/", 1)[-1]
     placeholder = (
         f'<rect x="{fmt_num(node.xfrm.x)}" y="{fmt_num(node.xfrm.y)}" '
@@ -390,6 +523,75 @@ def _convert_graphic_fallback(node: ShapeNode, ctx: AssemblyContext,
         f"[{_xml_escape(label)}]</text>"
     )
     return _wrap_shape_group(placeholder, node, ctx, top_level=top_level)
+
+
+def _render_graphic_table(node: ShapeNode, ctx: AssemblyContext,
+                          graphic_data: ET.Element | None) -> str:
+    """Convert the <a:tbl> child of a graphicFrame to SVG, or return ''."""
+    if graphic_data is None:
+        return ""
+    tbl = graphic_data.find("a:tbl", NS)
+    if tbl is None:
+        return ""
+    result = convert_tbl(
+        tbl, node.xfrm, ctx.palette,
+        theme_fonts=ctx.theme_fonts,
+        id_prefix=f"tbl{ctx.shape_seq[0]}",
+        grad_seq=ctx.grad_seq,
+        marker_seq=ctx.marker_seq,
+    )
+    if result.defs:
+        ctx.defs.extend(result.defs)
+    return result.svg
+
+
+def _render_ole_preview(node: ShapeNode, ctx: AssemblyContext) -> str:
+    """Render an OLE-embedded object as its baked preview bitmap.
+
+    PowerPoint stores a static raster preview for every embedded OLE object
+    inside ``mc:AlternateContent``. The Fallback branch is required by spec
+    to be a plain ``p:pic`` (sometimes nested inside a stray ``p:oleObj``),
+    so any conformant viewer that can't speak OLE just paints the preview.
+    We do the same: locate that ``p:pic`` and run it through the regular
+    picture pipeline. The user sees what they'd see in PowerPoint without
+    double-clicking the chart, no live OLE editing required (which we
+    couldn't do in SVG anyway).
+
+    Falls back to '' when the deck has no Fallback pic (very old or
+    third-party authoring tools sometimes omit it). Caller then emits the
+    dashed placeholder.
+    """
+    ac = node.xml.find("a:graphic/a:graphicData/mc:AlternateContent", NS)
+    if ac is None:
+        return ""
+    pic = ac.find("mc:Fallback//p:pic", NS)
+    if pic is None:
+        # Some authoring tools put the preview directly in mc:Choice.
+        pic = ac.find("mc:Choice//p:pic", NS)
+        if pic is None:
+            return ""
+
+    # The inner pic carries its own absolute xfrm in this deck (and in every
+    # well-formed PPTX I've seen — PowerPoint copies the graphicFrame xfrm
+    # there during save). If it's missing, fall back to the graphicFrame's
+    # xfrm so the preview at least lands somewhere visible.
+    inner_xfrm = node.xfrm
+    pic_xfrm_elem = pic.find("p:spPr/a:xfrm", NS)
+    if pic_xfrm_elem is not None:
+        from .emu_units import parse_xfrm
+        parsed = parse_xfrm(pic_xfrm_elem)
+        if parsed.w > 0 and parsed.h > 0:
+            inner_xfrm = parsed
+
+    result = convert_picture(
+        pic, inner_xfrm, ctx.slide_part, ctx.pkg,
+        media_subdir=ctx.media_subdir,
+        embed_inline=ctx.embed_images,
+    )
+    if not result.svg:
+        return ""
+    ctx.media.update(result.media)
+    return result.svg
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +631,44 @@ def _emit_background(slide: SlideRef, ctx: AssemblyContext,
         return (f'<rect x="0" y="0" width="{fmt_num(w)}" height="{fmt_num(h)}"'
                 f"{attrs_xml}/>")
     return ""
+
+
+def _emit_part_background(slide: SlideRef, ctx: AssemblyContext,
+                          w: float, h: float) -> str:
+    """Render the background declared on the part itself only.
+
+    Distinct from `_emit_background`, which walks the slide → layout →
+    master inheritance chain. Used by the layered solo renderer so each
+    standalone master / layout SVG carries only its own ``<p:bg>`` — the
+    inheritance is rebuilt by consumers re-stacking the layers, and we'd
+    rather output nothing than have master decoration leak into a layout
+    file.
+    """
+    bg = get_background(slide.part.xml)
+    if bg is None:
+        return ""
+    bg_pr = bg.find("p:bgPr", NS)
+    bg_ref = bg.find("p:bgRef", NS)
+    placeholder_hex = None
+
+    if bg_pr is None and bg_ref is not None:
+        bg_pr = _theme_background_fill(slide, ctx, bg_ref)
+        color_elem = find_color_elem(bg_ref)
+        placeholder_hex, _ = resolve_color(color_elem, ctx.palette)
+    if bg_pr is None:
+        return ""
+
+    fill = resolve_fill(
+        bg_pr, ctx.palette,
+        id_prefix="bg", id_seq=ctx.grad_seq,
+        placeholder_hex=placeholder_hex,
+    )
+    ctx.defs.extend(fill.defs)
+    if not fill.attrs:
+        return ""
+    attrs_xml = _attrs_to_xml(fill.attrs)
+    return (f'<rect x="0" y="0" width="{fmt_num(w)}" height="{fmt_num(h)}"'
+            f"{attrs_xml}/>")
 
 
 def _theme_background_fill(
