@@ -73,7 +73,9 @@ For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
 
 | Workflow | Path | Purpose |
 |----------|------|---------|
+| `topic-research` | `workflows/topic-research.md` | Pre-pipeline — gather web sources when the user supplies only a topic with no source files |
 | `create-template` | `workflows/create-template.md` | Standalone template creation workflow |
+| `resume-execute` | `workflows/resume-execute.md` | Phase B entry — resume execution in a fresh chat after Phase A (Step 1–5) completed in another session (split mode) |
 | `verify-charts` | `workflows/verify-charts.md` | Chart coordinate calibration — run after SVG generation if the deck contains data charts |
 | `visual-edit` | `workflows/visual-edit.md` | Browser-based visual editor for fine-grained edits — run only when the user explicitly requests it after export |
 
@@ -84,6 +86,8 @@ For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
 ### Step 1: Source Content Processing
 
 🚧 **GATE**: User has provided source material (PDF / DOCX / EPUB / URL / Markdown file / text description / conversation content — any form is acceptable).
+
+> **No source content?** When the user supplies only a topic name or requirements without any file or substantive description, run the [`topic-research`](workflows/topic-research.md) workflow first, then return here with its products as input.
 
 When the user provides non-Markdown content, convert immediately:
 
@@ -172,7 +176,7 @@ Read references/strategist.md
 
 **Eight Confirmations** (full template: `templates/design_spec_reference.md`):
 
-⛔ **BLOCKING**: present the Eight Confirmations as a bundled recommendation set and **wait for explicit user confirmation or modification** before outputting Design Specification & Content Outline. This is the single core confirmation point — once confirmed, all subsequent steps proceed automatically.
+⛔ **BLOCKING**: present the Eight Confirmations as a single bundled recommendation set and **wait for explicit user confirmation or modification** before outputting Design Specification & Content Outline. This is the single core confirmation point — once confirmed, all subsequent steps proceed automatically.
 
 1. Canvas format
 2. Page count range
@@ -182,6 +186,15 @@ Read references/strategist.md
 6. Icon usage approach
 7. Typography plan
 8. Image usage approach
+
+**Mandatory — split-mode note** (not a ninth confirmation): after listing the eight confirmation details, you MUST append exactly one short line (rendered in the user's language, prefixed with 💡) about generation mode. Pick the variant by qualitative read of Phase A signals — recommended page count, source-material bulk, whether `topic-research` ran with substantial web-fetch accumulation:
+
+| Signal read | Line content |
+|---|---|
+| Heavy (long page count / bulky sources / heavy web-fetch accumulation) | State estimated page count and large source size; recommend switching to [split mode](workflows/resume-execute.md) after Step 5 — stop this chat, open a fresh window and input `继续生成 projects/<project_name>` to enter Phase B (SVG generation + export); no response or "continue" = default continuous mode. |
+| Normal (default) | State scale is moderate, default continuous mode generates in one go; if mid-way window switch is desired, input `继续生成 projects/<project_name>` after Step 5 to switch to [split mode](workflows/resume-execute.md). |
+
+This line is required output every run — the user must always see the mode choice exists. Whether to act on it is the user's call.
 
 If the user provided images, run analysis **before outputting the design spec**:
 ```bash
@@ -198,6 +211,7 @@ python3 ${SKILL_DIR}/scripts/analyze_images.py <project_path>/images
 ```markdown
 ## ✅ Strategist Phase Complete
 - [x] Eight Confirmations completed (user confirmed)
+- [x] Split-mode note appended below the eight items (heavy or normal variant)
 - [x] Design Specification & Content Outline generated
 - [x] Execution lock (spec_lock.md) generated
 - [ ] **Next**: Auto-proceed to [Image_Generator / Executor] phase
@@ -233,7 +247,7 @@ Workflow:
 2. Generate prompts (ai rows) and/or run search (web rows) per [image-base.md](references/image-base.md) §2 dispatch table
 3. Verify every row reaches a terminal status: `Generated` (ai success), `Sourced` (web success), or `Needs-Manual`
 
-**✅ Checkpoint — Confirm acquisition attempted for every row, proceed to Step 6**:
+**✅ Checkpoint — Confirm acquisition attempted for every row**:
 ```markdown
 ## ✅ Image Acquisition Phase Complete
 - [x] image_prompts.md created (when any ai rows processed)
@@ -241,7 +255,16 @@ Workflow:
 - [x] Each row: status is `Generated` / `Sourced` / `Needs-Manual` (no `Pending` remaining)
 ```
 
-> On acquisition failure, do NOT halt — follow the Failure Handling rule in [image-base.md](references/image-base.md) §5: retry once, then mark the row `Needs-Manual`, report to user, and continue to Step 6.
+**Default — auto-proceed to Step 6.** Only when the user's Step 4 response explicitly opted into split mode (in reply to the optional hint), output the Phase A hand-off below and stop this conversation:
+
+  ```markdown
+  ## ✅ Phase A Complete
+  - [x] Spec: `design_spec.md`, `spec_lock.md`
+  - [x] Resources: `sources/`, `images/`, `templates/`
+  - [ ] **Next**: open a fresh chat window and input `继续生成 projects/<project_name>` to enter Phase B via the [`resume-execute`](workflows/resume-execute.md) workflow.
+  ```
+
+> On acquisition failure, do NOT halt — follow the Failure Handling rule in [image-base.md](references/image-base.md) §5: retry once, then mark the row `Needs-Manual`, report to user, and continue to the checkpoint above.
 
 ---
 
