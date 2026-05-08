@@ -13,8 +13,8 @@ Strategy (v1):
   text frame plus lIns/rIns and the alignment.
 - No automatic word wrap (PPT's wrap is layout-time; v1 trusts the existing
   text frame width and emits text as-is). a:br produces an explicit linebreak.
-- Bullet points (a:buChar / a:buAutoNum) are NOT rendered as PPT bullet
-  glyphs — instead we prepend a literal '• ' / 'N. ' so the visual lands.
+- Bullet points (a:buChar / a:buAutoNum) are rendered as literal prefixes
+  so the visual lands without relying on PowerPoint list semantics.
 
 Color / font / size attributes propagate from a:rPr; missing attributes fall
 back to the paragraph's endParaRPr or to spec-default values.
@@ -143,11 +143,18 @@ def convert_txbody(
     else:
         cursor_y = inner_y
 
+    bottom_y = inner_y + inner_h
     text_blocks: list[str] = []
     for para, lines, height in zip(paragraphs, para_lines, para_heights):
         cursor_y += para.space_before_px
-        text_blocks.append(_emit_paragraph(para, lines, inner_x, inner_w, cursor_y))
+        visible_lines = _clip_lines_to_bottom(para, lines, cursor_y, bottom_y)
+        if visible_lines:
+            text_blocks.append(
+                _emit_paragraph(para, visible_lines, inner_x, inner_w, cursor_y)
+            )
         cursor_y += height + para.space_after_px
+        if cursor_y >= bottom_y:
+            break
 
     return TextResult(svg="\n".join(text_blocks))
 
@@ -207,18 +214,35 @@ def convert_vertical_txbody(
     total_h = sum(advances)
     top_y = box_y + max(0.0, (box_h - total_h) / 2.0)
 
-    text_blocks: list[str] = []
+    bottom_y = box_y + box_h
+    spans: list[str] = []
     cursor_y = top_y
+    first_run: TextRun | None = None
+    first_baseline: float | None = None
+    previous_baseline: float | None = None
     for (char, run), advance in zip(glyphs, advances):
+        if cursor_y + advance > bottom_y:
+            break
         baseline_y = cursor_y + run.font_size_px * 0.85
-        attrs = _text_base_attrs(run, center_x, baseline_y, "middle")
         tspan_attrs = _run_tspan_attrs(run)
-        text_blocks.append(
-            f"<text{attrs}><tspan{tspan_attrs}>{_xml_escape(char)}</tspan></text>"
-        )
+        if first_run is None:
+            first_run = run
+            first_baseline = baseline_y
+            spans.append(f"<tspan{tspan_attrs}>{_xml_escape(char)}</tspan>")
+        else:
+            dy = baseline_y - (previous_baseline or baseline_y)
+            spans.append(
+                f'<tspan x="{fmt_num(center_x)}" dy="{fmt_num(dy)}"'
+                f"{tspan_attrs}>{_xml_escape(char)}</tspan>"
+            )
+        previous_baseline = baseline_y
         cursor_y += advance
 
-    return TextResult(svg="\n".join(text_blocks))
+    if first_run is None or first_baseline is None:
+        return TextResult()
+
+    attrs = _text_base_attrs(first_run, center_x, first_baseline, "middle")
+    return TextResult(svg=f"<text{attrs}>{''.join(spans)}</text>")
 
 
 def _rotated_bbox(xfrm: Xfrm) -> tuple[float, float, float, float]:
@@ -254,9 +278,10 @@ def _parse_paragraphs(
 ) -> list[TextParagraph]:
     """Walk <a:p> children producing TextParagraph objects."""
     paragraphs: list[TextParagraph] = []
+    autonum_state: dict[int, int] = {}
 
     for p_elem in tx_body.findall("a:p", NS):
-        para = _parse_paragraph(p_elem, palette, theme_fonts)
+        para = _parse_paragraph(p_elem, palette, theme_fonts, autonum_state)
         paragraphs.append(para)
 
     return paragraphs
@@ -266,6 +291,7 @@ def _parse_paragraph(
     p_elem: ET.Element,
     palette: ColorPalette | None,
     theme_fonts: dict[str, str],
+    autonum_state: dict[int, int],
 ) -> TextParagraph:
     para = TextParagraph()
 
@@ -305,8 +331,8 @@ def _parse_paragraph(
             except ValueError:
                 pass
 
-        # Bullet
-        para.bullet_prefix = _resolve_bullet_prefix(p_pr)
+        # Bullet / basic auto-numbering
+        para.bullet_prefix = _resolve_bullet_prefix(p_pr, para.level, autonum_state)
 
     # Default endParaRPr style (applies if a run has no rPr)
     end_rpr = p_elem.find("a:endParaRPr", NS)
@@ -476,10 +502,15 @@ def _quote_font(name: str) -> str:
     return name
 
 
-def _resolve_bullet_prefix(p_pr: ET.Element) -> str:
+def _resolve_bullet_prefix(
+    p_pr: ET.Element,
+    level: int,
+    autonum_state: dict[int, int],
+) -> str:
     """Render bullet glyphs / numbering as a literal text prefix."""
     bu_none = p_pr.find("a:buNone", NS)
     if bu_none is not None:
+        autonum_state.pop(level, None)
         return ""
     bu_char = p_pr.find("a:buChar", NS)
     if bu_char is not None:
@@ -487,10 +518,66 @@ def _resolve_bullet_prefix(p_pr: ET.Element) -> str:
         return f"{ch} "
     bu_auto = p_pr.find("a:buAutoNum", NS)
     if bu_auto is not None:
-        # Type-aware numbering (arabicPeriod / romanLcParenR / etc.) is too
-        # ambiguous without paragraph history; use a placeholder.
-        return "• "
+        start_at = bu_auto.attrib.get("startAt")
+        if start_at is not None:
+            try:
+                autonum_state[level] = int(start_at)
+            except ValueError:
+                autonum_state[level] = 1
+        else:
+            autonum_state[level] = autonum_state.get(level, 0) + 1
+        return _format_auto_number(
+            autonum_state[level],
+            bu_auto.attrib.get("type", "arabicPeriod"),
+        )
     return ""
+
+
+def _format_auto_number(value: int, kind: str) -> str:
+    lower = kind.lower()
+    if "alphalc" in lower:
+        token = _alpha_number(value, uppercase=False)
+    elif "alphauc" in lower:
+        token = _alpha_number(value, uppercase=True)
+    elif "romanlc" in lower:
+        token = _roman_number(value).lower()
+    elif "romanuc" in lower:
+        token = _roman_number(value).upper()
+    else:
+        token = str(value)
+
+    if "parenboth" in lower:
+        return f"({token}) "
+    if "parenr" in lower:
+        return f"{token}) "
+    if "period" in lower:
+        return f"{token}. "
+    return f"{token} "
+
+
+def _alpha_number(value: int, *, uppercase: bool) -> str:
+    value = max(1, value)
+    chars: list[str] = []
+    while value:
+        value -= 1
+        chars.append(chr(ord("A") + (value % 26)))
+        value //= 26
+    text = "".join(reversed(chars))
+    return text if uppercase else text.lower()
+
+
+def _roman_number(value: int) -> str:
+    value = max(1, min(value, 3999))
+    parts: list[str] = []
+    for n, token in (
+        (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+        (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+        (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+    ):
+        while value >= n:
+            parts.append(token)
+            value -= n
+    return "".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -687,9 +774,31 @@ def _paragraph_height_from_lines(p: TextParagraph,
         return DEFAULT_FONT_SIZE_PX * p.line_height_ratio
     height = 0.0
     for line in lines:
-        max_font = max((r.font_size_px for r in line), default=DEFAULT_FONT_SIZE_PX)
-        height += max_font * p.line_height_ratio
+        height += _line_height(p, line)
     return height
+
+
+def _line_height(p: TextParagraph, line: list[TextRun]) -> float:
+    max_font = max((r.font_size_px for r in line), default=DEFAULT_FONT_SIZE_PX)
+    return max_font * p.line_height_ratio
+
+
+def _clip_lines_to_bottom(
+    para: TextParagraph,
+    lines: list[list[TextRun]],
+    top_y: float,
+    bottom_y: float,
+) -> list[list[TextRun]]:
+    """Return the leading display lines whose line boxes fit in the text frame."""
+    visible: list[list[TextRun]] = []
+    cursor_y = top_y
+    for line in lines:
+        line_h = _line_height(para, line)
+        if cursor_y + line_h > bottom_y:
+            break
+        visible.append(line)
+        cursor_y += line_h
+    return visible
 
 
 def _paragraph_height(p: TextParagraph) -> float:

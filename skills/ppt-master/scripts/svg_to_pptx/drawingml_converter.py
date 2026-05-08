@@ -9,15 +9,19 @@ from xml.etree import ElementTree as ET
 from .drawingml_context import ConvertContext, ShapeResult
 from .drawingml_utils import (
     SVG_NS,
-    _extract_inheritable_styles, resolve_url_id,
+    _extract_inheritable_styles, parse_transform_matrix, resolve_url_id,
 )
 from .drawingml_styles import build_effect_xml
 from .drawingml_elements import (
     convert_rect, convert_circle, convert_ellipse,
     convert_line, convert_path,
     convert_polygon, convert_polyline,
-    convert_text, convert_image,
+    convert_text, convert_image, convert_nested_svg,
 )
+
+
+class SvgNativeConversionError(RuntimeError):
+    """Raised when an SVG cannot be faithfully converted to native DrawingML."""
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +104,25 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
     filter_id = resolve_url_id(elem.get('filter', ''))
     style_overrides = _extract_inheritable_styles(elem)
-    child_ctx = ctx.child(dx, dy, sx, sy, filter_id, style_overrides)
+
+    elem_id = elem.get('id')
+    should_animate_group = ctx.depth == 0 and elem_id and not _is_chrome_id(elem_id)
+    visual_children = [
+        child for child in elem
+        if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
+    ]
+    matrix_supported = bool(transform) and visual_children and all(
+        _supports_matrix_transform(child) for child in visual_children
+    )
+    if matrix_supported:
+        child_ctx = ctx.child(
+            0, 0, 1.0, 1.0,
+            transform_matrix=parse_transform_matrix(transform),
+            filter_id=filter_id,
+            style_overrides=style_overrides,
+        )
+    else:
+        child_ctx = ctx.child(dx, dy, sx, sy, filter_id=filter_id, style_overrides=style_overrides)
 
     child_results: list[ShapeResult] = []
     for child in elem:
@@ -112,9 +134,6 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
     if not child_results:
         return None
-
-    elem_id = elem.get('id')
-    should_animate_group = ctx.depth == 0 and elem_id and not _is_chrome_id(elem_id)
 
     # Single-child non-semantic groups are flattened to reduce nesting. Top-level
     # semantic groups are preserved so animations target the group, not its
@@ -159,7 +178,7 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
     if filter_id and filter_id in ctx.defs:
         group_effect = build_effect_xml(ctx.defs[filter_id])
 
-    rot_emu = int(angle_deg * 60000)
+    rot_emu = 0 if matrix_supported else int(angle_deg * 60000)
     rot_attr = f' rot="{rot_emu}"' if rot_emu else ''
 
     return ShapeResult(xml=f'''<p:grpSp>
@@ -187,6 +206,30 @@ def convert_g(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None:
 
 _NON_VISUAL_TAGS = frozenset(('defs', 'title', 'desc', 'metadata', 'style'))
 
+
+def _supports_matrix_transform(elem: ET.Element) -> bool:
+    """Return whether this subtree can consume a full affine matrix directly."""
+    tag = elem.tag.replace(f'{{{SVG_NS}}}', '')
+    if tag == 'image':
+        return True
+    if tag == 'svg':
+        visual_children = [
+            child for child in elem
+            if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
+        ]
+        return len(visual_children) == 1 and (
+            visual_children[0].tag.replace(f'{{{SVG_NS}}}', '') == 'image'
+        )
+    if tag == 'g':
+        visual_children = [
+            child for child in elem
+            if child.tag.replace(f'{{{SVG_NS}}}', '') not in _NON_VISUAL_TAGS
+        ]
+        return bool(visual_children) and all(
+            _supports_matrix_transform(child) for child in visual_children
+        )
+    return False
+
 _CONVERTERS = {
     'rect': convert_rect,
     'circle': convert_circle,
@@ -198,7 +241,10 @@ _CONVERTERS = {
     'text': convert_text,
     'image': convert_image,
     'g': convert_g,
+    'svg': convert_nested_svg,
 }
+
+_SUPPORTED_VISUAL_CHILD_TAGS = frozenset(('tspan',))
 
 
 def collect_defs(root: ET.Element) -> dict[str, ET.Element]:
@@ -227,13 +273,38 @@ def convert_element(elem: ET.Element, ctx: ConvertContext) -> ShapeResult | None
         try:
             return converter(elem, ctx)
         except Exception as e:
-            print(f'  Warning: Failed to convert <{tag}>: {e}')
-            return None
+            raise SvgNativeConversionError(f'Failed to convert <{tag}>: {e}') from e
 
     if tag in _NON_VISUAL_TAGS:
         return None
 
-    return None
+    raise SvgNativeConversionError(f'Unsupported visual SVG element <{tag}>')
+
+
+def _local_tag(elem: ET.Element) -> str:
+    return elem.tag.split('}', 1)[-1] if isinstance(elem.tag, str) and '}' in elem.tag else str(elem.tag)
+
+
+def _collect_unsupported_visuals(root: ET.Element) -> list[str]:
+    issues: list[str] = []
+
+    def walk(elem: ET.Element, path: str, in_defs: bool = False) -> None:
+        tag = _local_tag(elem)
+        current = f'{path}/{tag}'
+        if in_defs:
+            return
+        if tag in _NON_VISUAL_TAGS:
+            return
+        if (tag not in _CONVERTERS
+                and tag not in _NON_VISUAL_TAGS
+                and tag not in _SUPPORTED_VISUAL_CHILD_TAGS):
+            issues.append(current)
+        for idx, child in enumerate(list(elem), start=1):
+            walk(child, f'{current}[{idx}]', in_defs=(tag == 'defs'))
+
+    for idx, child in enumerate(list(root), start=1):
+        walk(child, f'/svg[{idx}]')
+    return issues
 
 
 def convert_svg_to_slide_shapes(
@@ -281,6 +352,14 @@ def convert_svg_to_slide_shapes(
     from .tspan_flattener import flatten_positional_tspans
     if flatten_positional_tspans(tree) and verbose:
         print('  Flattened positional <tspan> into independent <text>')
+
+    unsupported = _collect_unsupported_visuals(root)
+    if unsupported:
+        preview = '; '.join(unsupported[:8])
+        suffix = '' if len(unsupported) <= 8 else f'; +{len(unsupported) - 8} more'
+        raise SvgNativeConversionError(
+            f'{svg_path.name}: unsupported visual SVG element(s): {preview}{suffix}'
+        )
 
     defs = collect_defs(root)
     ctx = ConvertContext(defs=defs, slide_num=slide_num, svg_dir=Path(svg_path).parent)
