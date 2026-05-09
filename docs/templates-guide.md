@@ -14,25 +14,88 @@ This guide answers three questions:
 
 ### How to trigger
 
-The workflow **defaults to free design** — it will not ask whether you want a template. To enter the template flow, give an explicit trigger in chat:
+The workflow **defaults to free design** — it will not ask whether you want a template and will not proactively suggest one. Templates are opt-in by **explicit directory path** only: name the path in your initial message.
 
-| Trigger type | Example |
-|--------------|---------|
-| Name a specific template | "use the mckinsey template for this report" |
-| Name a style / brand reference | "McKinsey style" / "Google style" / "academic defense look" |
-| Ask for a list | "what templates are available?" |
+### How to enter the template flow
 
-On a hit, the AI reads [`templates/layouts/layouts_index.json`](../skills/ppt-master/templates/layouts/layouts_index.json), copies the matching template's SVGs, `design_spec.md`, and assets into the project's `templates/` directory, then proceeds to the Strategist phase.
+Send a path to a template directory in your initial message. Anywhere in the sentence is fine; the path just has to be unambiguous:
+
+> "use this template: `skills/ppt-master/templates/layouts/academic_defense/`" ✅
+> "用这个模板做汇报：`projects/last_deck/template/`" ✅
+> "做一份产品介绍，模板用 `/Users/me/Desktop/our_brand_v3/`" ✅
+
+The AI copies that directory's SVGs, `design_spec.md`, and assets into your project, then proceeds to the Strategist phase. The path can point to anywhere — the built-in library under `skills/ppt-master/templates/layouts/`, a previous project's `template/` folder, or any other location on disk.
+
+### What does NOT trigger the template flow
+
+- **A bare template name without a path**: "use the academic_defense template" / "用 招商银行 模板" / "做一份 google_style 模板的答辩" → free design. The AI does not look the name up. You must give a path.
+- **Style descriptions**: "McKinsey style" / "Google style" / "麦肯锡那种" / "极简风" / "Keynote 风" → free design. The descriptive words flow into Strategist as a style brief, but no template is copied.
+- **Vague intent**: "想用个模板" / "I want a template" with no path → free design.
+
+This is intentional — the AI never makes a fuzzy / interpretive judgment about whether your wording maps to a template, and never resolves a name to a path on your behalf. If you want a template, give the path.
+
+To browse what's available in the built-in library, ask "what templates are available?" — the AI lists names and paths from the discovery index. Listing alone does not enter the template flow; you still need to send back a path to trigger Step 3.
 
 ### Template catalog
 
-Full index in [`templates/layouts/README.md`](../skills/ppt-master/templates/layouts/README.md), grouped by Brand / General / Scenario / Government / Special, with primary color and use cases per entry. 21 templates currently shipped, covering McKinsey, Google, Anthropic, China Merchants Bank, PowerChina, CATARC, government blue/red, medical, psychology, pixel-retro and more.
+Full index in [`templates/layouts/README.md`](../skills/ppt-master/templates/layouts/README.md), grouped by Brand / Scenario / Government / Special, with primary color and use cases per entry. 17 templates currently shipped, covering Google, Anthropic, China Merchants Bank, PowerChina, CATARC, government blue/red, medical, psychology, pixel-retro and more.
 
 ### Free design vs template
 
 Free design is **not** "no style" — the AI designs a fresh visual system **for that specific deck** based on its content. A template **reuses an already-defined structure and style**. Both involve real design work; the difference is whether the style is improvised or preset.
 
 > Rule of thumb: clear content direction + strong brand or scenario constraints (consulting reports, government briefings, defenses) → use a template. Essay-like content where atmosphere matters more (magazine, documentary narrative) → free design usually works better.
+
+### Styles are not templates
+
+A **style** is a description ("minimalist" / "Keynote-style" / "magazine 风") — a few words you type in chat. A **template** is a copy-and-paste asset bundle (SVGs + design_spec + assets) the workflow installs into your project when you give it an explicit directory path.
+
+| | Template | Style |
+|---|---|---|
+| How invoked | Explicit directory path in your message | Free-form description in your message |
+| What happens | Files copied into project; layouts inherit from template SVGs | Words flow to Strategist; color / typography / tone proposed in Eight Confirmations |
+| Locked values | Yes — values come from the template's `design_spec.md` | No — Strategist invents values that fit the deck |
+| Best for | Brand-locked decks; scenarios with strong visual conventions | When you have a feel in mind but no specific brand commitment |
+
+A style mention may resemble a template name (e.g., "Google style" sounds like the `google_style/` template directory), but they go through different machinery — a template requires a real path the AI can copy from, a style mention is interpretive language. Similar words, different paths in the most literal sense.
+
+### Common styles you can describe
+
+Three axes, freely combinable ("dark tech + minimalist" or "magazine + neo-Chinese"):
+
+**Aesthetic direction**
+
+| Style | One-line characterization |
+|---|---|
+| **Minimalist / 极简风** | High whitespace, 2-3 colors, single focal point per page |
+| **Information-dense / 信息密集** | McKinsey-style structured tables, high density, conclusion-first |
+| **Keynote-style** | Single-page hero text, premium whitespace, Apple-feel |
+| **Editorial / 杂志风** | Large hero images, asymmetric layouts, strong typography contrast |
+| **Editorial illustration / 文艺手绘** | Warm tones, hand-drawn feel, zine-like |
+
+**Scenario / Industry**
+
+| Style | One-line characterization |
+|---|---|
+| **Business consulting** | Data-driven, restrained, blue / grey palette |
+| **Academic defense** | Strict hierarchy, citation-heavy, clean |
+| **Government briefing** | Red / blue, formal, symmetric |
+| **Product launch** | Visually bold, marketing-driven, single hero per page |
+| **Education / training** | Clear hierarchy, friendly tone, bright palette |
+| **Pitch deck / BP** | Narrative-driven, conclusion-bold |
+
+**Visual character / atmosphere**
+
+| Style | One-line characterization |
+|---|---|
+| **Dark tech / 暗色科技** | Dark backgrounds, neon accents, futuristic |
+| **Pixel retro** | 8-bit, scanlines, gaming aesthetic |
+| **Neo-Chinese / 新中式** | Restrained traditional motifs, ink / vermilion |
+| **Scandinavian / 北欧极简** | Light, natural, restrained |
+| **Memphis / pop** | High-saturation blocks, geometric, 80s |
+| **Cyberpunk / vaporwave** | Neon purple-pink, grids, dreamlike |
+
+When you describe a style, the AI doesn't pick a template — it interprets the words and lands them in Layer 2 of confirmation `d` (Style Objective) inside Strategist's Eight Confirmations, which then drives e (color), f (icon), g (typography), and h (image). You confirm or refine. If the style you want happens to match one of our built-in templates (e.g., `academic_defense` / `google_style` / `pixel_retro`), you have a choice: send the template's directory path for locked values, or describe the style for AI-interpreted values that adapt to your deck content.
 
 ---
 
@@ -102,7 +165,7 @@ After generation, the workflow:
 2. Registers the template ID in [`layouts_index.json`](../skills/ppt-master/templates/layouts/layouts_index.json)
 3. Syncs the table in [`templates/layouts/README.md`](../skills/ppt-master/templates/layouts/README.md)
 
-Once registered, any future project can invoke it by saying "use the `<your_template_id>` template".
+Registration makes the template **discoverable** — when someone asks "what templates are available?", the AI lists it from the index. To use it in a new project, follow the SKILL.md Step 3 rule: name its directory path in your first message, e.g. `use this template: skills/ppt-master/templates/layouts/<your_template_id>/`.
 
 ### What a derived template looks like
 

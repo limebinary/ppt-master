@@ -24,7 +24,7 @@ As a top-tier AI presentation strategist, receive source documents, perform cont
 
 ⛔ **BLOCKING**: After the read, present professional recommendations for the eight items below as a bundled package and wait for explicit user confirmation.
 
-> **Execution discipline**: This is the last BLOCKING checkpoint (besides template selection). After confirmation, complete the Design Spec and proceed to image generation / SVG / post-processing without further pauses.
+> **Execution discipline**: This is the last BLOCKING checkpoint in the pipeline. After confirmation, complete the Design Spec and proceed to image generation / SVG / post-processing without further pauses.
 
 ### a. Canvas Format Confirmation
 
@@ -40,13 +40,17 @@ Confirm target audience, usage occasion, and core message; provide initial asses
 
 ### d. Style Objective Confirmation
 
-| Style | Core Focus | Target Audience | One-line Description |
+Two layers. Output: `d. Style: <Mode> + <Visual style descriptor>`.
+
+#### Layer 1 — Communication mode
+
+| Mode | Core Focus | Target Audience | One-line Description |
 |-------|-----------|----------------|---------------------|
 | **A) General Versatile** | Visual impact first | Public / clients / trainees | "Catch the eye at a glance" |
 | **B) General Consulting** | Data clarity first | Teams / management | "Let data speak" |
 | **C) Top Consulting** | Logical persuasion first | Executives / board | "Lead with conclusions" |
 
-**Style selection decision tree**:
+Mode selection decision tree:
 
 ```
 Content characteristics?
@@ -59,6 +63,28 @@ Audience?
   ├── Teams / management ────────────→ B) General Consulting
   └── Executives / board / investors → C) Top Consulting
 ```
+
+#### Layer 2 — Visual style
+
+Anchors the downstream confirmations e (Color), f (Icon), g (Typography), h (Image).
+
+**Source**:
+- User named a style → record verbatim as a short descriptor (normalize multilingual phrasings to a single canonical form)
+- No user description → propose a default that fits the content (e.g., warm cultural tones for heritage content; clean minimalism for tech briefings; high-contrast editorial for magazine essays). Present as a recommendation; the user may override
+
+**Common descriptors** (free-form, combinable, not enums):
+
+| Axis | Examples |
+|---|---|
+| Aesthetic | minimalist / information-dense / Keynote / editorial / hand-drawn |
+| Scenario | business consulting / academic defense / government briefing / product launch / education / pitch deck |
+| Visual character | dark tech / pixel retro / neo-Chinese / Scandinavian / Memphis / cyberpunk / vaporwave |
+
+Accept user combinations and one-off coinages ("Scandinavian + slight industrial"). The list is for recall, not constraint.
+
+> **Template vs descriptor**: a style mention may sound like a template name ("Google style" vs the `google_style/` template directory). Step 3 only triggers on an explicit template directory path supplied by the user — bare names and style words never copy templates. If a template was triggered upstream, its files are already in `<project_path>/templates/`. Layer 2 only handles descriptors that did NOT come with a template path.
+
+**Downstream effect**: e / f / g / h values realize the Layer 2 descriptor on top of the Layer 1 mode. Example: "A) Versatile + neo-Chinese" → e leans cinnabar / ink / rice-paper; g pairs serif (KaiTi-class) with sans body; f minimal line icons; h restrained traditional imagery with negative space.
 
 ### e. Color Scheme Recommendation
 
@@ -494,22 +520,22 @@ Save outputs to `projects/<project_name>_<format>_<YYYYMMDD>/design_spec.md`.
 
 ## 8. Complete Design Spec and Prompt Next Steps
 
-After writing `design_spec.md` and `spec_lock.md`, output the next-step prompt below based on template + image selection. This is a handoff instruction, not part of `design_spec.md`.
+After writing `design_spec.md` and `spec_lock.md`, output the next-step prompt below. This is a handoff instruction, not part of `design_spec.md`. Pick the variant by whether Step 3 copied a template into `<project_path>/templates/`.
 
-### Template Option A (Using existing template)
+### Template mode (template applied in Step 3)
 
 ```
 ✅ Design spec complete. Template ready.
 Next step:
 - Images include AI generation → Invoke Image_Generator
-- Images do not include AI generation → Invoke Executor
+- Otherwise → Invoke Executor
 ```
 
-### Template Option B (No template)
+### Free design (default, no template)
 
 ```
 ✅ Design spec complete.
 Next step:
 - Images include AI generation → Invoke Image_Generator
-- Images do not include AI generation → Invoke Executor (free design for every page)
+- Otherwise → Invoke Executor (free design for every page)
 ```
